@@ -27,4 +27,4 @@ export const POLL_INTERVAL_MS = 100;
 // ---------------------------------------------------------------------------
 
 /** アプリケーション名 */
-export const APP_NAME = "Midnight dApp";
+export const APP_NAME = "Hidden League Forecast";

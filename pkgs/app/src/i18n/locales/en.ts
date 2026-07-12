@@ -41,10 +41,102 @@ const en = {
     disconnect: "Disconnect",
   },
   app: {
-    subtitle: "Connect your Lace Wallet to access Midnight Network",
+    subtitle:
+      "Connect Lace to seal a private Lantern Cup forecast on Midnight.",
   },
   toast: {
     copySuccess: "Address copied to clipboard",
+  },
+  market: {
+    season: "MIDNIGHT COMMUNITY LEAGUE · SEASON 01",
+    hero: {
+      line1: "Who lifts the",
+      cup: "Lantern Cup?",
+      description:
+        "Seal your forecast before the crowd is revealed. Your team stays private until the prediction window closes.",
+    },
+    privacy: {
+      title: "Private by design",
+      description:
+        "Your browser keeps the team and salt. Midnight records only a commitment and public points.",
+    },
+    join: {
+      aria: "Join prediction market",
+      contract: "Market contract",
+      placeholder: "Paste a contract address",
+      enter: "Enter this market",
+      create: "or create a new market as steward →",
+    },
+    brand: "HIDDEN LEAGUE FORECAST",
+    title: { cup: "Lantern Cup", finalFour: "Final Four" },
+    phase: {
+      label: "LIVE PHASE",
+      open: "Predictions open",
+      reveal: "Reveal window",
+      awaiting: "Awaiting result",
+      resolved: "Market resolved",
+    },
+    teams: {
+      heading: "THE CONTENDERS",
+      prompt1: "Choose with your heart.",
+      prompt2: "Prove it in private.",
+      club: "{{place}} Football Club",
+      sealed: "SEALED",
+      pointsShort: "{{points}} pts",
+      amber_foxes: { name: "Amber Foxes", place: "Solvale" },
+      cedar_owls: { name: "Cedar Owls", place: "Northwood" },
+      harbor_whales: { name: "Harbor Whales", place: "Bluehaven" },
+      meadow_bears: { name: "Meadow Bears", place: "Greenbank" },
+    },
+    stats: {
+      forecasts: "{{count}} sealed forecasts",
+      pool: "{{points}} points in the pool",
+      revealed: "{{revealed}} of {{total}} forecasts revealed.",
+    },
+    slip: {
+      label: "YOUR FORECAST · ADMIT ONE",
+      champion: "Champion pick",
+      confidence: "Confidence points",
+      careful: "10 · careful",
+      allIn: "500 · all in",
+      commit: "Seal my forecast",
+      reveal: "Reveal my forecast",
+      claim: "Claim forecast points",
+      secretNote:
+        "The team and random salt remain in this browser profile until reveal. Keep this device and profile safe.",
+    },
+    pulse: {
+      label: "MARKET PULSE",
+      sealedTitle: "The envelopes are still sealed.",
+      revealedTitle: "The terraces are speaking.",
+      sealedDescription:
+        "Team-by-team sentiment stays hidden so every supporter makes an independent call.",
+    },
+    admin: {
+      label: "STEWARD'S DESK",
+      title: "Match control",
+      description:
+        "These actions are final and verified against the steward's private key.",
+      closePredictions: "Close predictions",
+      closeReveal: "Close reveal window",
+    },
+    status: {
+      idle: "Zero-knowledge privacy active",
+      working: "Midnight is {{action}}…",
+      deploying: "deploying",
+      joining: "joining",
+      committing: "sealing your forecast",
+      revealing: "revealing your forecast",
+      admin: "updating the market",
+      claiming: "claiming points",
+    },
+    errors: {
+      transaction:
+        "The transaction could not finish. Check Lace and the current market phase, then try again.",
+      subscription: "The latest market state could not be loaded.",
+      privateMissing:
+        "The private prediction is missing from this browser profile. Return to the same device and profile used to commit.",
+    },
   },
   rps: {
     title: "RPS Game (Rock-Paper-Scissors)",

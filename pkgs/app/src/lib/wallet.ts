@@ -148,9 +148,7 @@ async function connectViaV4(
     try {
       // getShieldedAddresses() may return an array (old versions) or a single object (new versions), so handle both cases
       const result = await (
-        walletRaw.getShieldedAddresses as () => Promise<
-          Record<string, unknown>
-        >
+        walletRaw.getShieldedAddresses as () => Promise<Record<string, unknown>>
       )();
       // Lace v4 returns a single object (not array):
       // { shieldedAddress, shieldedCoinPublicKey, shieldedEncryptionPublicKey }

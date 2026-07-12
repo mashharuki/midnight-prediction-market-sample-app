@@ -351,6 +351,16 @@ function cjsInteropBuildShimPlugin(entries: CjsInteropEntry[]): Plugin {
         alias: e.alias,
       });
       let code = result.outputFiles[0].text;
+      // esbuild leaves `require("pkg")` behind for external dependencies in
+      // bundled CJS. That helper throws in browsers. Promote each external to
+      // a real ESM namespace import and replace the generated require call.
+      for (const [index, specifier] of (e.external ?? []).entries()) {
+        const binding = `__cjsExternal${index}`;
+        code = `import * as ${binding} from ${JSON.stringify(specifier)};\n${code.replaceAll(
+          `__require(${JSON.stringify(specifier)})`,
+          binding,
+        )}`;
+      }
       if (e.namedExports) {
         // Match the LAST "export default <expr>;" (there can be trailing
         // license-comment banners after it, so don't anchor to end-of-file).

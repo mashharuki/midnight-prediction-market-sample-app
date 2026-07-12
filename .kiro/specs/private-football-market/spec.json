@@ -1,0 +1,10 @@
+{
+  "feature_name": "private-football-market",
+  "language": "ja",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": { "generated": true, "approved": true },
+    "design": { "generated": true, "approved": true },
+    "tasks": { "generated": true, "approved": true }
+  }
+}

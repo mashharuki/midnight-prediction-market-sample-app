@@ -1,7 +1,6 @@
-import { AddressCard } from "./components/AddressCard";
 import { ConnectSection } from "./components/ConnectSection";
 import { LanguageToggle } from "./components/LanguageToggle";
-import { RpsGame } from "./components/RpsGame";
+import { PredictionMarketView } from "./components/PredictionMarket";
 import { useWallet } from "./contexts/useWallet";
 
 /**
@@ -14,13 +13,10 @@ function App() {
   const { state } = useWallet();
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
+    <main className="min-h-screen">
       <LanguageToggle />
       {state.status === "connected" ? (
-        <div className="flex flex-col gap-4 w-full max-w-md">
-          <AddressCard />
-          <RpsGame />
-        </div>
+        <PredictionMarketView />
       ) : (
         <ConnectSection />
       )}
