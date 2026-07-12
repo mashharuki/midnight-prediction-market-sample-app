@@ -60,6 +60,39 @@ export class WalletSyncingError extends Error {
   }
 }
 
+const walletErrorText = (error: unknown): string => {
+  if (typeof error === "string") return error.toLowerCase();
+  if (error === null || typeof error !== "object") {
+    return String(error).toLowerCase();
+  }
+  const value = error as Record<string, unknown>;
+  return [value.message, value.reason, value.code]
+    .filter((part) => part !== undefined)
+    .join(" ")
+    .toLowerCase();
+};
+
+/** Preserve the real connector failure instead of labelling every v4 error as a network mismatch. */
+export function classifyWalletConnectError(
+  error: unknown,
+  networkLabel: string,
+): Error {
+  const details = walletErrorText(error);
+  if (details.includes("rejected") || details.includes("cancel")) {
+    return new UserRejectedError();
+  }
+  if (details.includes("sync")) return new WalletSyncingError();
+  if (
+    details.includes("network mismatch") ||
+    details.includes("network does not match") ||
+    details.includes("unsupported network") ||
+    details.includes("invalid network")
+  ) {
+    return new NetworkMismatchError(networkLabel);
+  }
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 /**
  * window.midnight.mnLace が注入されるまで 100ms ポーリングで待機する。
  * mnLace が見つからない場合は、apiVersion プロパティを持つ任意のキーを探す（旧命名規則対応）。
@@ -106,13 +139,39 @@ async function connectViaV4(
 
   try {
     walletAPI = await connector.connect(networkId);
-    // Lace v4: getConfiguration() is on walletAPI (not connector)
-    const walletRaw = walletAPI as unknown as Record<string, unknown>;
+  } catch (error: unknown) {
+    throw classifyWalletConnectError(error, NETWORKS[networkId].label);
+  }
 
-    if (typeof walletRaw.getConfiguration === "function") {
-      const cfg = (await (
-        walletRaw.getConfiguration as () => Promise<Record<string, string>>
-      )()) as Record<string, string>;
+  // Configuration API placement differs across Lace connector generations.
+  // It is optional: a failure here must not invalidate an already-successful connection.
+  const walletRaw = walletAPI as unknown as Record<string, unknown>;
+  const connectorRaw = connector as unknown as Record<string, unknown>;
+  const configurationReader =
+    typeof walletRaw.getConfiguration === "function"
+      ? () =>
+          (
+            walletRaw.getConfiguration as () => Promise<Record<string, string>>
+          ).call(walletAPI)
+      : typeof connectorRaw.getConfiguration === "function"
+        ? () =>
+            (
+              connectorRaw.getConfiguration as () => Promise<
+                Record<string, string>
+              >
+            ).call(connector)
+        : typeof connectorRaw.serviceUriConfig === "function"
+          ? () =>
+              (
+                connectorRaw.serviceUriConfig as () => Promise<
+                  Record<string, string>
+                >
+              ).call(connector)
+          : null;
+
+  if (configurationReader) {
+    try {
+      const cfg = await configurationReader();
       uris = {
         indexerUri: cfg.indexerUri ?? cfg.indexerUrl ?? fallbackUris.indexerUri,
         indexerWsUri:
@@ -124,22 +183,15 @@ async function connectViaV4(
         substrateNodeUri:
           cfg.substrateNodeUri ?? cfg.nodeUri ?? fallbackUris.substrateNodeUri,
       };
+    } catch (error: unknown) {
+      console.warn(
+        "[wallet] configuration lookup failed; using network fallback URIs:",
+        error,
+      );
     }
-  } catch (e: unknown) {
-    const lowerMsg = String(
-      (e as Record<string, unknown>)?.message ?? e,
-    ).toLowerCase();
-    if (lowerMsg.includes("rejected") || lowerMsg.includes("cancel")) {
-      throw new UserRejectedError();
-    }
-    if (lowerMsg.includes("sync")) {
-      throw new WalletSyncingError();
-    }
-    throw new NetworkMismatchError(NETWORKS[networkId].label);
   }
 
   // Lace v4: state() does not exist — use getShieldedAddresses() instead
-  const walletRaw = walletAPI as unknown as Record<string, unknown>;
   let address = "";
   let coinPublicKey = "";
   let encryptionPublicKey = "";
@@ -176,6 +228,19 @@ async function connectViaV4(
       }
       throw e;
     }
+  } else if (typeof walletRaw.state === "function") {
+    const legacyState = await (
+      walletRaw.state as () => Promise<Record<string, unknown>>
+    )();
+    address = String(legacyState.address ?? legacyState.shieldedAddress ?? "");
+    coinPublicKey = String(
+      legacyState.coinPublicKey ?? legacyState.shieldedCoinPublicKey ?? "",
+    );
+    encryptionPublicKey = String(
+      legacyState.encryptionPublicKey ??
+        legacyState.shieldedEncryptionPublicKey ??
+        "",
+    );
   }
 
   const state = {

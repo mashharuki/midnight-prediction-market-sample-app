@@ -12,6 +12,7 @@ import type {
 export type LaceV4Connector = {
   connect: (networkId: string) => Promise<DAppConnectorWalletAPI>;
   getConfiguration?: () => Promise<Record<string, string>>;
+  serviceUriConfig?: () => Promise<ServiceUriConfig>;
 };
 
 /** Legacy Lace: enable() で API を取得するコネクター */
