@@ -1,7 +1,10 @@
-import type {
-  DAppConnectorAPI,
-  DAppConnectorWalletAPI,
-  ServiceUriConfig,
+import {
+  APIError,
+  type DAppConnectorAPI,
+  type DAppConnectorWalletAPI,
+  type DAppConnectorWalletState,
+  ErrorCodes,
+  type ServiceUriConfig,
 } from "@midnight-ntwrk/dapp-connector-api";
 import i18next from "i18next";
 import { filter, firstValueFrom, interval, map, take, timeout } from "rxjs";
@@ -13,8 +16,11 @@ import {
 } from "@/utils/constants";
 import { NETWORKS, type NetworkId } from "@/utils/networks";
 import type {
-  LaceLegacyConnector,
+  DetectedLaceConnector,
+  LaceV4Configuration,
   LaceV4Connector,
+  LaceV4ShieldedAddress,
+  LaceV4WalletAPI,
   WalletConnectionResult,
 } from "@/utils/types";
 
@@ -60,61 +66,100 @@ export class WalletSyncingError extends Error {
   }
 }
 
-const walletErrorText = (error: unknown): string => {
-  if (typeof error === "string") return error.toLowerCase();
-  if (error === null || typeof error !== "object") {
-    return String(error).toLowerCase();
-  }
-  const value = error as Record<string, unknown>;
-  return [value.message, value.reason, value.code]
-    .filter((part) => part !== undefined)
-    .join(" ")
-    .toLowerCase();
+export type WalletErrorDetails = {
+  code?: string;
+  reason?: string;
+  message: string;
 };
 
-/** Preserve the real connector failure instead of labelling every v4 error as a network mismatch. */
-export function classifyWalletConnectError(
-  error: unknown,
-  networkLabel: string,
-): Error {
-  const details = walletErrorText(error);
-  if (details.includes("rejected") || details.includes("cancel")) {
+/** Extract connector diagnostics without relying on undocumented wallet methods. */
+export function getWalletErrorDetails(error: unknown): WalletErrorDetails {
+  if (error instanceof APIError) {
+    return { code: error.code, reason: error.reason, message: error.message };
+  }
+  if (error instanceof Error) return { message: error.message };
+  return { message: String(error) };
+}
+
+export function classifyWalletConnectError(error: unknown): Error {
+  const { code, reason, message } = getWalletErrorDetails(error);
+  const details = [code, reason, message]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    code === ErrorCodes.Rejected ||
+    details.includes("rejected") ||
+    details.includes("cancel")
+  ) {
     return new UserRejectedError();
   }
   if (details.includes("sync")) return new WalletSyncingError();
-  if (
-    details.includes("network mismatch") ||
-    details.includes("network does not match") ||
-    details.includes("unsupported network") ||
-    details.includes("invalid network")
-  ) {
-    return new NetworkMismatchError(networkLabel);
-  }
-  return error instanceof Error ? error : new Error(String(error));
+  return error instanceof Error ? error : new Error(message);
+}
+
+function normalizeUri(uri: string): string {
+  return uri.replace(/\/+$/, "").toLowerCase();
+}
+
+export function matchesSelectedNetwork(
+  uris: ServiceUriConfig,
+  networkId: NetworkId,
+): boolean {
+  const expected = NETWORKS[networkId].fallbackUris;
+  return (
+    normalizeUri(uris.indexerUri) === normalizeUri(expected.indexerUri) &&
+    normalizeUri(uris.substrateNodeUri) ===
+      normalizeUri(expected.substrateNodeUri)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+export function isLaceV4Connector(value: unknown): value is LaceV4Connector {
+  return (
+    isRecord(value) &&
+    typeof value.apiVersion === "string" &&
+    typeof value.connect === "function"
+  );
+}
+
+function isLegacyConnector(value: unknown): value is DAppConnectorAPI {
+  return (
+    isRecord(value) &&
+    typeof value.apiVersion === "string" &&
+    typeof value.enable === "function" &&
+    typeof value.serviceUriConfig === "function"
+  );
 }
 
 /**
- * window.midnight.mnLace が注入されるまで 100ms ポーリングで待機する。
- * mnLace が見つからない場合は、apiVersion プロパティを持つ任意のキーを探す（旧命名規則対応）。
- * DETECT_TIMEOUT_MS 以内に見つからなければ WalletNotFoundError を投げる。
+ * Lace may attach optional capabilities only after it has been discovered.
+ * Match the injected provider by apiVersion first, then check its API generation.
  */
-function detectConnectorAPI(): Promise<DAppConnectorAPI> {
+export function findLaceConnector(
+  midnight: unknown,
+): DetectedLaceConnector | null {
+  if (!isRecord(midnight)) return null;
+  const candidates = [midnight.mnLace, ...Object.values(midnight)];
+  return (
+    candidates.find(
+      (candidate): candidate is DetectedLaceConnector =>
+        isRecord(candidate) && typeof candidate.apiVersion === "string",
+    ) ?? null
+  );
+}
+
+function detectConnectorAPI(): Promise<DetectedLaceConnector> {
   return firstValueFrom(
     interval(POLL_INTERVAL_MS).pipe(
       map(() => {
-        const midnight = (
-          globalThis.window as unknown as Record<string, unknown>
-        )?.midnight as Record<string, unknown> | undefined;
-        if (!midnight) return null;
-        if (midnight.mnLace) return midnight.mnLace as DAppConnectorAPI;
-        return (
-          (Object.values(midnight).find(
-            (v) =>
-              typeof (v as Record<string, unknown>)?.apiVersion === "string",
-          ) as DAppConnectorAPI | undefined) ?? null
-        );
+        return findLaceConnector(globalThis.window?.midnight);
       }),
-      filter((api): api is DAppConnectorAPI => api !== null),
+      filter((api): api is DetectedLaceConnector => api !== null),
       take(1),
       timeout({ first: DETECT_TIMEOUT_MS }),
     ),
@@ -123,203 +168,220 @@ function detectConnectorAPI(): Promise<DAppConnectorAPI> {
   });
 }
 
+function logConnectorFailure(
+  operation:
+    | "connect"
+    | "enable"
+    | "getConfiguration"
+    | "getShieldedAddresses"
+    | "serviceUriConfig"
+    | "state",
+  networkId: NetworkId,
+  error: unknown,
+): void {
+  console.error("[wallet] connector request failed", {
+    operation,
+    networkId,
+    origin: globalThis.location?.origin ?? "unknown",
+    ...getWalletErrorDetails(error),
+  });
+}
+
 /**
- * Lace v4 API (connect() 方式) でウォレットに接続する。
- * ユーザーが選択した networkId のみを指定して接続を試みる(dAppがLaceのネットワークを
- * 強制的に変えることはできないため、Lace側が同じネットワークでなければ失敗する)。
- * 接続後に getConfiguration() から Indexer / Proof Server の URI を取得する。
+ * Connect through the public Connector API v3 contract only:
+ * enable() -> serviceUriConfig() -> wallet.state().
  */
-async function connectViaV4(
-  connector: LaceV4Connector,
+export async function connectWithConnector(
+  connector: DAppConnectorAPI,
   networkId: NetworkId,
 ): Promise<WalletConnectionResult> {
-  const fallbackUris = NETWORKS[networkId].fallbackUris;
-  let walletAPI: DAppConnectorWalletAPI | null = null;
-  let uris: ServiceUriConfig = fallbackUris;
-
+  let wallet: DAppConnectorWalletAPI;
   try {
-    walletAPI = await connector.connect(networkId);
+    wallet = await connector.enable();
   } catch (error: unknown) {
-    throw classifyWalletConnectError(error, NETWORKS[networkId].label);
+    logConnectorFailure("enable", networkId, error);
+    throw classifyWalletConnectError(error);
   }
 
-  // Configuration API placement differs across Lace connector generations.
-  // It is optional: a failure here must not invalidate an already-successful connection.
-  const walletRaw = walletAPI as unknown as Record<string, unknown>;
-  const connectorRaw = connector as unknown as Record<string, unknown>;
-  const configurationReader =
-    typeof walletRaw.getConfiguration === "function"
-      ? () =>
-          (
-            walletRaw.getConfiguration as () => Promise<Record<string, string>>
-          ).call(walletAPI)
-      : typeof connectorRaw.getConfiguration === "function"
-        ? () =>
-            (
-              connectorRaw.getConfiguration as () => Promise<
-                Record<string, string>
-              >
-            ).call(connector)
-        : typeof connectorRaw.serviceUriConfig === "function"
-          ? () =>
-              (
-                connectorRaw.serviceUriConfig as () => Promise<
-                  Record<string, string>
-                >
-              ).call(connector)
-          : null;
-
-  if (configurationReader) {
-    try {
-      const cfg = await configurationReader();
-      uris = {
-        indexerUri: cfg.indexerUri ?? cfg.indexerUrl ?? fallbackUris.indexerUri,
-        indexerWsUri:
-          cfg.indexerWsUri ?? cfg.indexerWsUrl ?? fallbackUris.indexerWsUri,
-        proverServerUri:
-          cfg.proverServerUri ??
-          cfg.proofServerUri ??
-          fallbackUris.proverServerUri,
-        substrateNodeUri:
-          cfg.substrateNodeUri ?? cfg.nodeUri ?? fallbackUris.substrateNodeUri,
-      };
-    } catch (error: unknown) {
-      console.warn(
-        "[wallet] configuration lookup failed; using network fallback URIs:",
-        error,
-      );
-    }
+  let uris: ServiceUriConfig;
+  try {
+    uris = await connector.serviceUriConfig();
+  } catch (error: unknown) {
+    logConnectorFailure("serviceUriConfig", networkId, error);
+    throw classifyWalletConnectError(error);
   }
 
-  // Lace v4: state() does not exist — use getShieldedAddresses() instead
-  let address = "";
-  let coinPublicKey = "";
-  let encryptionPublicKey = "";
-
-  if (typeof walletRaw.getShieldedAddresses === "function") {
-    try {
-      // getShieldedAddresses() may return an array (old versions) or a single object (new versions), so handle both cases
-      const result = await (
-        walletRaw.getShieldedAddresses as () => Promise<Record<string, unknown>>
-      )();
-      // Lace v4 returns a single object (not array):
-      // { shieldedAddress, shieldedCoinPublicKey, shieldedEncryptionPublicKey }
-      const entry = (Array.isArray(result) ? result[0] : result) as
-        | Record<string, unknown>
-        | undefined;
-      if (entry) {
-        address = String(entry.shieldedAddress ?? entry.address ?? "");
-        coinPublicKey = String(
-          entry.shieldedCoinPublicKey ?? entry.coinPublicKey ?? "",
-        );
-        encryptionPublicKey = String(
-          entry.shieldedEncryptionPublicKey ?? entry.encryptionPublicKey ?? "",
-        );
-      }
-    } catch (e: unknown) {
-      // Previously unguarded: a failure here fell through as an unclassified
-      // error with no logging, so the root cause never reached the console.
-      console.error("[wallet] getShieldedAddresses() failed:", e);
-      const lowerMsg = String(
-        (e as Record<string, unknown>)?.message ?? e,
-      ).toLowerCase();
-      if (lowerMsg.includes("sync")) {
-        throw new WalletSyncingError();
-      }
-      throw e;
-    }
-  } else if (typeof walletRaw.state === "function") {
-    const legacyState = await (
-      walletRaw.state as () => Promise<Record<string, unknown>>
-    )();
-    address = String(legacyState.address ?? legacyState.shieldedAddress ?? "");
-    coinPublicKey = String(
-      legacyState.coinPublicKey ?? legacyState.shieldedCoinPublicKey ?? "",
-    );
-    encryptionPublicKey = String(
-      legacyState.encryptionPublicKey ??
-        legacyState.shieldedEncryptionPublicKey ??
-        "",
-    );
+  if (!matchesSelectedNetwork(uris, networkId)) {
+    console.error("[wallet] connector network mismatch", {
+      requestedNetwork: networkId,
+      requestedUris: NETWORKS[networkId].fallbackUris,
+      connectorUris: uris,
+    });
+    throw new NetworkMismatchError(NETWORKS[networkId].label);
   }
 
-  const state = {
-    address,
-    coinPublicKey,
-    encryptionPublicKey,
+  let state: DAppConnectorWalletState;
+  try {
+    state = await wallet.state();
+  } catch (error: unknown) {
+    logConnectorFailure("state", networkId, error);
+    throw classifyWalletConnectError(error);
+  }
+
+  return { wallet, uris, state };
+}
+
+function normalizeV4Configuration(
+  config: LaceV4Configuration,
+): ServiceUriConfig {
+  return {
+    indexerUri: config.indexerUri ?? config.indexerUrl ?? "",
+    indexerWsUri:
+      config.indexerWsUri ??
+      config.indexerWsUrl ??
+      config.indexerWebSocketUrl ??
+      "",
+    proverServerUri:
+      config.proverServerUri ??
+      config.proofServerUri ??
+      config.proverUri ??
+      config.proofServerUrl ??
+      "",
+    substrateNodeUri:
+      config.substrateNodeUri ?? config.nodeUri ?? config.substrateUri ?? "",
+  };
+}
+
+function toWalletState(
+  address: LaceV4ShieldedAddress,
+): DAppConnectorWalletState {
+  return {
+    address: address.shieldedAddress ?? address.address ?? "",
+    coinPublicKey: address.shieldedCoinPublicKey ?? address.coinPublicKey ?? "",
+    encryptionPublicKey:
+      address.shieldedEncryptionPublicKey ?? address.encryptionPublicKey ?? "",
     addressLegacy: "",
     coinPublicKeyLegacy: "",
     encryptionPublicKeyLegacy: "",
   };
-  return { wallet: walletAPI, uris, state };
 }
 
 /**
- * Lace Wallet への接続エントリーポイント。
- *
- * 処理フロー:
- * 1. window.midnight.mnLace を検出（ポーリング）
- * 2. apiVersion を semver で互換性チェック
- * 3. connect() があれば Lace v4 方式で接続
- * 4. enable() があれば Legacy 方式で接続
- *
- * @param networkId 接続を要求するネットワーク(preprod/preview)。Lace側が別ネットワークに
- *                  設定されている場合は NetworkMismatchError になる。
- * @throws WalletNotFoundError   - ウォレット拡張機能が未インストール
- * @throws VersionMismatchError  - API バージョンが非互換
- * @throws NetworkMismatchError  - Lace が指定ネットワークに接続できなかった
- * @throws UserRejectedError     - ユーザーが接続を拒否
- * @throws WalletTimeoutError    - 接続タイムアウト
+ * Lace v4 exposes the address API on the injected connector. Older Lace v4
+ * builds put it on the object returned from connect(), so retain that only as
+ * a compatibility fallback.
  */
+async function readLaceV4State(
+  wallet: LaceV4WalletAPI,
+  connector: LaceV4Connector,
+  networkId: NetworkId,
+): Promise<DAppConnectorWalletState> {
+  try {
+    const source = connector.getShieldedAddresses
+      ? "connector"
+      : wallet.getShieldedAddresses
+        ? "wallet"
+        : "none";
+    console.info("[wallet] reading shielded address", {
+      networkId,
+      origin: globalThis.location?.origin ?? "unknown",
+      source,
+    });
+    const result = connector.getShieldedAddresses
+      ? await connector.getShieldedAddresses()
+      : wallet.getShieldedAddresses
+        ? await wallet.getShieldedAddresses()
+        : undefined;
+    if (!result) {
+      throw new Error("Lace does not expose getShieldedAddresses().");
+    }
+    const address = Array.isArray(result) ? result[0] : result;
+    if (!address) throw new Error("Lace returned no shielded address.");
+    return toWalletState(address);
+  } catch (error: unknown) {
+    logConnectorFailure("getShieldedAddresses", networkId, error);
+    throw classifyWalletConnectError(error);
+  }
+}
+
+export async function connectWithLaceV4(
+  connector: LaceV4Connector,
+  networkId: NetworkId,
+): Promise<WalletConnectionResult> {
+  let wallet: LaceV4WalletAPI;
+  try {
+    wallet = await connector.connect(networkId);
+  } catch (error: unknown) {
+    logConnectorFailure("connect", networkId, error);
+    throw classifyWalletConnectError(error);
+  }
+
+  let uris: ServiceUriConfig;
+  const walletConfigurationReader = wallet.getConfiguration;
+  const connectorConfigurationReader = connector.getConfiguration;
+  const configurationReaders = [
+    walletConfigurationReader
+      ? () => walletConfigurationReader.call(wallet)
+      : undefined,
+    connectorConfigurationReader
+      ? () => connectorConfigurationReader.call(connector)
+      : undefined,
+  ].filter(
+    (reader): reader is () => Promise<LaceV4Configuration> =>
+      typeof reader === "function",
+  );
+  uris = NETWORKS[networkId].fallbackUris;
+  for (const readConfiguration of configurationReaders) {
+    try {
+      uris = normalizeV4Configuration(await readConfiguration());
+      break;
+    } catch (error: unknown) {
+      console.warn(
+        "[wallet] configuration lookup failed; using fallback URIs",
+        {
+          networkId,
+          ...getWalletErrorDetails(error),
+        },
+      );
+    }
+  }
+
+  if (!matchesSelectedNetwork(uris, networkId)) {
+    console.error("[wallet] connector network mismatch", {
+      requestedNetwork: networkId,
+      requestedUris: NETWORKS[networkId].fallbackUris,
+      connectorUris: uris,
+    });
+    throw new NetworkMismatchError(NETWORKS[networkId].label);
+  }
+
+  return {
+    wallet,
+    uris,
+    state: await readLaceV4State(wallet, connector, networkId),
+  };
+}
+
 export async function connectToWallet(
   networkId: NetworkId,
 ): Promise<WalletConnectionResult> {
-  // 1. window.midnight.mnLace を検出（ポーリング）
-  const connectorAPI = await detectConnectorAPI();
-
-  if (
-    !semver.satisfies(connectorAPI.apiVersion, COMPATIBLE_CONNECTOR_VERSION)
-  ) {
-    throw new VersionMismatchError(connectorAPI.apiVersion);
+  const connector = await detectConnectorAPI();
+  const connectorCapabilities = connector as unknown as Record<string, unknown>;
+  console.info("[wallet] Lace connector detected", {
+    origin: globalThis.location?.origin ?? "unknown",
+    networkId,
+    apiVersion: connector.apiVersion,
+    supportsConnect: typeof connectorCapabilities.connect === "function",
+    supportsEnable: typeof connectorCapabilities.enable === "function",
+  });
+  if (!semver.satisfies(connector.apiVersion, COMPATIBLE_CONNECTOR_VERSION)) {
+    throw new VersionMismatchError(connector.apiVersion);
   }
-
-  const raw = connectorAPI as unknown as Record<string, unknown>;
-
-  // Lace v4: connect() directly on the connector (no enable() step)
-  if (typeof raw.connect === "function") {
-    return connectViaV4(connectorAPI as unknown as LaceV4Connector, networkId);
+  if (isLaceV4Connector(connector)) {
+    return connectWithLaceV4(connector, networkId);
   }
-
-  // Legacy: enable() first, then optional connect()
-  if (typeof raw.enable !== "function") {
-    throw new Error(i18next.t("error.unsupportedApi"));
+  if (isLegacyConnector(connector)) {
+    return connectWithConnector(connector, networkId);
   }
-
-  try {
-    const legacyConnector = connectorAPI as unknown as LaceLegacyConnector;
-    const enabledAPI = await legacyConnector.enable();
-    const enabledRaw = enabledAPI as unknown as Record<string, unknown>;
-
-    // Some legacy versions expose connect() on the enabled API
-    if (typeof enabledRaw.connect === "function") {
-      return connectViaV4(enabledAPI as unknown as LaceV4Connector, networkId);
-    }
-
-    // Legacy API has no network selection — assume it matches the requested network
-    const state = await enabledAPI.state();
-    return {
-      wallet: enabledAPI,
-      uris: NETWORKS[networkId].fallbackUris,
-      state,
-    };
-  } catch (e: unknown) {
-    const msg = String((e as Record<string, unknown>)?.message ?? e);
-    if (
-      msg.toLowerCase().includes("rejected") ||
-      msg.toLowerCase().includes("cancel")
-    ) {
-      throw new UserRejectedError();
-    }
-    throw e;
-  }
+  throw new Error(i18next.t("error.unsupportedApi"));
 }

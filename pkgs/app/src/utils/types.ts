@@ -3,21 +3,50 @@ import type {
   DAppConnectorWalletState,
   ServiceUriConfig,
 } from "@midnight-ntwrk/dapp-connector-api";
+import type { NetworkId } from "./networks";
 
-// ---------------------------------------------------------------------------
-// Lace Wallet Connector 内部型
-// ---------------------------------------------------------------------------
+export type LaceV4Configuration = Partial<
+  ServiceUriConfig & {
+    indexerUrl: string;
+    indexerWsUrl: string;
+    indexerWebSocketUrl: string;
+    proofServerUri: string;
+    proverUri: string;
+    proofServerUrl: string;
+    nodeUri: string;
+    substrateUri: string;
+  }
+>;
 
-/** Lace v4: connect() を直接持つコネクター */
-export type LaceV4Connector = {
-  connect: (networkId: string) => Promise<DAppConnectorWalletAPI>;
-  getConfiguration?: () => Promise<Record<string, string>>;
-  serviceUriConfig?: () => Promise<ServiceUriConfig>;
+export type LaceV4ShieldedAddress = {
+  address?: string;
+  shieldedAddress?: string;
+  coinPublicKey?: string;
+  shieldedCoinPublicKey?: string;
+  encryptionPublicKey?: string;
+  shieldedEncryptionPublicKey?: string;
 };
 
-/** Legacy Lace: enable() で API を取得するコネクター */
-export type LaceLegacyConnector = {
-  enable: () => Promise<DAppConnectorWalletAPI>;
+export type LaceV4WalletAPI = DAppConnectorWalletAPI & {
+  getConfiguration?: () => Promise<LaceV4Configuration>;
+  getShieldedAddresses?: () => Promise<
+    LaceV4ShieldedAddress | LaceV4ShieldedAddress[]
+  >;
+};
+
+/** The current Lace extension connector contract, which is not described by dapp-connector-api v3. */
+export type LaceV4Connector = {
+  apiVersion: string;
+  connect: (networkId: NetworkId) => Promise<LaceV4WalletAPI>;
+  getConfiguration?: () => Promise<LaceV4Configuration>;
+  getShieldedAddresses?: () => Promise<
+    LaceV4ShieldedAddress | LaceV4ShieldedAddress[]
+  >;
+};
+
+/** Minimal shape required for discovery; method capabilities are checked after discovery. */
+export type DetectedLaceConnector = {
+  apiVersion: string;
 };
 
 // ---------------------------------------------------------------------------

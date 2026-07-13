@@ -102,6 +102,7 @@ const en = {
       commit: "Seal my forecast",
       reveal: "Reveal my forecast",
       claim: "Claim forecast points",
+      stamped: "Forecast sealed",
       secretNote:
         "The team and random salt remain in this browser profile until reveal. Keep this device and profile safe.",
     },

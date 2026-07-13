@@ -57,13 +57,13 @@ function ConnectedCard({ connection }: { connection: WalletConnectionResult }) {
   const isRefreshing = balanceState.status === "loading";
 
   return (
-    <Card className="w-full max-w-lg border-border bg-card shadow-[0_0_40px_0_rgba(168,85,247,0.15)]">
+    <Card className="w-full max-w-lg rounded-none border-foreground bg-card shadow-[8px_8px_0_#d6c9af]">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <Badge
           variant="outline"
-          className="flex items-center gap-1.5 border-cyan/30 bg-cyan/10 text-cyan"
+          className="flex items-center gap-1.5 border-primary/30 bg-primary/10 text-primary"
         >
-          <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
           {t("label.connected")}
         </Badge>
         <span className="rounded-md bg-secondary px-2 py-1 text-xs text-primary">
@@ -88,7 +88,7 @@ function ConnectedCard({ connection }: { connection: WalletConnectionResult }) {
               aria-label={t("aria.copyAddress")}
             >
               {copied ? (
-                <Check className="h-4 w-4 text-cyan" />
+                <Check className="h-4 w-4 text-primary" />
               ) : (
                 <Copy className="h-4 w-4" />
               )}
@@ -156,7 +156,7 @@ function ConnectedCard({ connection }: { connection: WalletConnectionResult }) {
                   <Droplets className="h-3.5 w-3.5" />
                   {t("label.dust")}
                 </div>
-                <span className="font-mono text-sm font-semibold text-cyan">
+                <span className="font-mono text-sm font-semibold text-accent">
                   {balanceState.status === "loaded" ? balanceState.dust : "--"}{" "}
                   {CURRENCY_UNIT}
                 </span>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   MarketPhase,
@@ -9,6 +9,7 @@ import {
 } from "shared";
 import { AddressCard } from "@/components/AddressCard";
 import { Button } from "@/components/ui/button";
+import { useCountUp } from "@/hooks/useCountUp";
 import { usePredictionMarket } from "@/hooks/usePredictionMarket";
 
 // Design context: newcomers predict a fictional football champion; mood is warm/community-minded;
@@ -39,7 +40,20 @@ export function PredictionMarketView() {
   const market = usePredictionMarket();
   const [team, setTeam] = useState<TeamType>(Team.amber_foxes);
   const [stake, setStake] = useState(100);
+  const [stamped, setStamped] = useState(false);
+  const prevAction = useRef(market.action);
   const busy = market.action !== "idle";
+
+  // commit → idle への遷移（エラーなし）を封印成功とみなしスタンプを押す
+  useEffect(() => {
+    const was = prevAction.current;
+    prevAction.current = market.action;
+    if (was === "committing" && market.action === "idle" && !market.error) {
+      setStamped(true);
+      const id = setTimeout(() => setStamped(false), 2600);
+      return () => clearTimeout(id);
+    }
+  }, [market.action, market.error]);
   const currentLedger = market.ledger;
   const revealedPool = currentLedger
     ? TEAM_KEYS.reduce(
@@ -51,7 +65,7 @@ export function PredictionMarketView() {
   if (!market.connected) {
     return (
       <div className="market-shell join-layout">
-        <section className="league-intro">
+        <section className="league-intro animate-fade-in-up">
           <p className="eyebrow">{t("market.season")}</p>
           <h1>
             {t("market.hero.line1")}
@@ -68,7 +82,11 @@ export function PredictionMarketView() {
             </div>
           </div>
         </section>
-        <section className="join-ticket" aria-label={t("market.join.aria")}>
+        <section
+          className="join-ticket animate-fade-in-up"
+          style={{ animationDelay: "120ms" }}
+          aria-label={t("market.join.aria")}
+        >
           <AddressCard />
           <label htmlFor="contract">{t("market.join.contract")}</label>
           <input
@@ -101,7 +119,7 @@ export function PredictionMarketView() {
   const phase = market.ledger?.phase ?? MarketPhase.open;
   return (
     <div className="market-page">
-      <header className="market-header">
+      <header className="market-header animate-fade-in-up">
         <div>
           <p className="eyebrow">{t("market.brand")}</p>
           <h1>
@@ -110,7 +128,7 @@ export function PredictionMarketView() {
         </div>
         <div className="phase-stamp">
           <span>{t("market.phase.label")}</span>
-          <strong>{t(`market.phase.${phaseKeys[phase]}`)}</strong>
+          <strong key={phase}>{t(`market.phase.${phaseKeys[phase]}`)}</strong>
         </div>
       </header>
 
@@ -146,7 +164,8 @@ export function PredictionMarketView() {
                 <button
                   type="button"
                   key={key}
-                  className={`team-row ${team === value ? "selected" : ""}`}
+                  className={`team-row animate-fade-in-up ${team === value ? "selected" : ""}`}
+                  style={{ animationDelay: `${100 + index * 60}ms` }}
                   onClick={() => setTeam(value)}
                   disabled={phase !== MarketPhase.open}
                   aria-pressed={team === value}
@@ -169,12 +188,26 @@ export function PredictionMarketView() {
                     </small>
                   </span>
                   {phase === MarketPhase.open ? (
-                    <span className="sealed-label">
+                    <span
+                      className="sealed-label"
+                      style={
+                        {
+                          "--row-delay": `${index * 60}ms`,
+                        } as React.CSSProperties
+                      }
+                    >
                       {t("market.teams.sealed")}
                     </span>
                   ) : (
-                    <span className="odds">
-                      <strong>{percent}%</strong>
+                    <span
+                      className="odds"
+                      style={
+                        {
+                          "--row-delay": `${index * 60}ms`,
+                        } as React.CSSProperties
+                      }
+                    >
+                      <OddsPercent percent={percent} />
                       <small>
                         {t("market.teams.pointsShort", {
                           points: pool.toString(),
@@ -188,8 +221,16 @@ export function PredictionMarketView() {
           </div>
         </section>
 
-        <aside className="forecast-slip">
+        <aside
+          className="forecast-slip animate-fade-in-up"
+          style={{ animationDelay: "220ms" }}
+        >
           <p className="ticket-label">{t("market.slip.label")}</p>
+          {stamped ? (
+            <span className="ticket-stamp" aria-hidden="true">
+              {t("market.slip.stamped")}
+            </span>
+          ) : null}
           <div className="ticket-team">
             <span
               className="crest large"
@@ -252,12 +293,12 @@ export function PredictionMarketView() {
         <section className="market-pulse">
           <div>
             <p className="kicker">{t("market.pulse.label")}</p>
-            <h2>
+            <h2 key={phase}>
               {phase === MarketPhase.open
                 ? t("market.pulse.sealedTitle")
                 : t("market.pulse.revealedTitle")}
             </h2>
-            <p>
+            <p key={`pulse-${phase}`}>
               {phase === MarketPhase.open
                 ? t("market.pulse.sealedDescription")
                 : t("market.stats.revealed", {
@@ -299,13 +340,23 @@ export function PredictionMarketView() {
           </section>
         ) : null}
       </main>
-      <div className="transaction-status" aria-live="polite">
+      <div
+        className="transaction-status"
+        aria-live="polite"
+        data-visible={busy}
+      >
         {busy
           ? t("market.status.working", {
               action: t(`market.status.${market.action}`),
             })
-          : t("market.status.idle")}
+          : null}
       </div>
     </div>
   );
+}
+
+/** リビール後のオッズ % をカウントアップ表示する。 */
+function OddsPercent({ percent }: { percent: number }) {
+  const shown = useCountUp(percent);
+  return <strong>{shown}%</strong>;
 }

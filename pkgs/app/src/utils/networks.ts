@@ -15,7 +15,7 @@ export const NETWORK_IDS: readonly NetworkId[] = ["preprod", "preview"];
 export const NETWORK_STORAGE_KEY = "network";
 
 /** ユーザーが明示的に選択しなかった場合の既定ネットワーク */
-export const DEFAULT_NETWORK_ID: NetworkId = "preprod";
+export const DEFAULT_NETWORK_ID: NetworkId = "preview";
 
 export interface NetworkDefinition {
   /** UI表示ラベル */
@@ -23,7 +23,7 @@ export interface NetworkDefinition {
   /** テストネット用フォーセットURL */
   faucetUrl: string;
   /**
-   * ウォレットの getConfiguration() が使えない場合のフォールバックURI。
+   * Lace Connector API が返す URI と照合するネットワーク URI。
    * pkgs/shared/src/network-config.ts (pkgs/cli と共有) と同じエンドポイントに揃えてある。
    */
   fallbackUris: ServiceUriConfig;

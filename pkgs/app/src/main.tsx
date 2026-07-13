@@ -18,7 +18,7 @@ createRoot(document.getElementById("root")!).render(
     <NetworkProvider>
       <WalletProvider>
         <App />
-        <Toaster theme="dark" position="bottom-right" richColors />
+        <Toaster theme="light" position="bottom-right" />
       </WalletProvider>
     </NetworkProvider>
   </StrictMode>,
