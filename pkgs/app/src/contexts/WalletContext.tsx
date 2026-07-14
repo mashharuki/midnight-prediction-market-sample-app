@@ -11,6 +11,7 @@ import {
   WalletNotFoundError,
   WalletSyncingError,
   WalletTimeoutError,
+  WalletUnavailableError,
 } from "@/lib/wallet";
 import { useNetwork } from "./useNetwork";
 import { WalletContext, type WalletState } from "./walletContextDef";
@@ -62,6 +63,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       } else if (e instanceof WalletTimeoutError) {
         toast.error(e.message);
       } else if (e instanceof WalletSyncingError) {
+        toast.error(e.message);
+      } else if (e instanceof WalletUnavailableError) {
         toast.error(e.message);
       } else {
         toast.error(i18next.t("error.connectGeneric"));

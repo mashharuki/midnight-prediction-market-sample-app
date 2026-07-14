@@ -13,6 +13,8 @@ import {
   COMPATIBLE_CONNECTOR_VERSION,
   DETECT_TIMEOUT_MS,
   POLL_INTERVAL_MS,
+  WALLET_UNAVAILABLE_MAX_ATTEMPTS,
+  WALLET_UNAVAILABLE_RETRY_DELAY_MS,
 } from "@/utils/constants";
 import { NETWORKS, type NetworkId } from "@/utils/networks";
 import type {
@@ -66,6 +68,13 @@ export class WalletSyncingError extends Error {
   }
 }
 
+export class WalletUnavailableError extends Error {
+  constructor() {
+    super(i18next.t("error.walletUnavailable"));
+    this.name = "WalletUnavailableError";
+  }
+}
+
 export type WalletErrorDetails = {
   code?: string;
   reason?: string;
@@ -95,8 +104,29 @@ export function classifyWalletConnectError(error: unknown): Error {
   ) {
     return new UserRejectedError();
   }
+  if (details.includes("wallet is unavailable")) {
+    return new WalletUnavailableError();
+  }
   if (details.includes("sync")) return new WalletSyncingError();
   return error instanceof Error ? error : new Error(message);
+}
+
+/**
+ * Lace(MV3) の Service Worker 再起動やロック解除の直後は、内部の Midnight
+ * ウォレットインスタンス (midnightWallets$) がまだ空で、connect() 成功後でも
+ * APIError(InternalError, "Wallet is unavailable") が返る。起動待ちで解消する
+ * 一時エラーなのでリトライ対象として識別する。
+ */
+function isWalletInstanceUnavailable(error: unknown): boolean {
+  const { code, reason, message } = getWalletErrorDetails(error);
+  return (
+    code === ErrorCodes.InternalError &&
+    `${reason ?? ""} ${message}`.toLowerCase().includes("wallet is unavailable")
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeUri(uri: string): string {
@@ -276,17 +306,18 @@ async function readLaceV4State(
   connector: LaceV4Connector,
   networkId: NetworkId,
 ): Promise<DAppConnectorWalletState> {
-  try {
-    const source = connector.getShieldedAddresses
-      ? "connector"
-      : wallet.getShieldedAddresses
-        ? "wallet"
-        : "none";
-    console.info("[wallet] reading shielded address", {
-      networkId,
-      origin: globalThis.location?.origin ?? "unknown",
-      source,
-    });
+  const source = connector.getShieldedAddresses
+    ? "connector"
+    : wallet.getShieldedAddresses
+      ? "wallet"
+      : "none";
+  console.info("[wallet] reading shielded address", {
+    networkId,
+    origin: globalThis.location?.origin ?? "unknown",
+    source,
+  });
+
+  const readAddress = async (): Promise<LaceV4ShieldedAddress> => {
     const result = connector.getShieldedAddresses
       ? await connector.getShieldedAddresses()
       : wallet.getShieldedAddresses
@@ -297,10 +328,27 @@ async function readLaceV4State(
     }
     const address = Array.isArray(result) ? result[0] : result;
     if (!address) throw new Error("Lace returned no shielded address.");
-    return toWalletState(address);
-  } catch (error: unknown) {
-    logConnectorFailure("getShieldedAddresses", networkId, error);
-    throw classifyWalletConnectError(error);
+    return address;
+  };
+
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return toWalletState(await readAddress());
+    } catch (error: unknown) {
+      if (
+        isWalletInstanceUnavailable(error) &&
+        attempt < WALLET_UNAVAILABLE_MAX_ATTEMPTS
+      ) {
+        console.warn(
+          "[wallet] Lace midnight wallet not started yet; retrying",
+          { attempt, networkId },
+        );
+        await sleep(WALLET_UNAVAILABLE_RETRY_DELAY_MS);
+        continue;
+      }
+      logConnectorFailure("getShieldedAddresses", networkId, error);
+      throw classifyWalletConnectError(error);
+    }
   }
 }
 

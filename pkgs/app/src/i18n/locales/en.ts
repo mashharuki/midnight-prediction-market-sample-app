@@ -11,6 +11,8 @@ const en = {
       "Connection timed out. Please unlock Lace Wallet and try again.",
     walletSyncing:
       "Lace Wallet is still syncing with the network. Please open the Lace extension, wait for sync to finish, then try again.",
+    walletUnavailable:
+      "Lace has not finished starting its Midnight wallet. Open the Lace extension, make sure it is unlocked and a Midnight account exists for the selected network, wait for sync to finish, then try again.",
     unsupportedApi:
       "Unsupported Lace Wallet API: neither connect() nor enable() found.",
     connectGeneric: "An error occurred during connection. Please try again.",

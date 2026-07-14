@@ -11,6 +11,8 @@ const ja = {
       "接続タイムアウト。Lace Wallet のロックを解除してから再試行してください。",
     walletSyncing:
       "Lace Wallet がネットワークと同期中です。Lace拡張機能を開いて同期が完了するのを待ってから、再度お試しください。",
+    walletUnavailable:
+      "Lace の Midnight ウォレットがまだ起動していません。Lace 拡張機能を開いてロックを解除し、選択中のネットワークの Midnight アカウントが存在すること・同期が完了していることを確認してから再試行してください。",
     unsupportedApi:
       "Unsupported Lace Wallet API: neither connect() nor enable() found.",
     connectGeneric: "接続中にエラーが発生しました。再度お試しください。",
