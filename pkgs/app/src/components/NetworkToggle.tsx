@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { NETWORK_IDS, NETWORKS } from "@/utils/networks";
 
 /**
- * 接続前に preprod / preview のどちらに接続するかを選ぶセグメントコントロール。
+ * 接続前に Lace の Midnight ネットワークを選ぶセグメントコントロール。
  * 選択は NetworkContext 経由で localStorage に永続化される。
  */
 export function NetworkToggle() {

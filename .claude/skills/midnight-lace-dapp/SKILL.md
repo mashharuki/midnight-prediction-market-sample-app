@@ -13,9 +13,8 @@ description: >
 license: MIT
 metadata:
   author: mashharuki
-  version: "2.1.0"
-  midnight-js-version: "2.0.2"
-  dapp-connector-api-version: "3.0.0"
+  version: "2.2.0"
+  dapp-connector-api-version: "3.0.0+"
   reference: "example-kitties"
 ---
 
@@ -182,6 +181,20 @@ export async function connectToWallet(logger?: Logger): Promise<{
 
 > **重要**: `window.midnight.mnLace` が well-known キー。存在しない場合は `apiVersion` プロパティで汎用検索する。
 
+### Lace v4 の URI を正しく扱う
+
+`connect(networkId)` が成功したあと、`getConfiguration()` が返す URI は、選択したネットワークの実際の接続先である。これを旧来の静的な URI と比較して拒否しない。特に Preview / PreProd の Indexer は `api/v4` へ移行しており、旧 `api/v3` を期待すると、正常な Lace 接続を `NetworkMismatchError` として誤判定する。
+
+2026年7月時点の公開テストネットの基準値は次のとおり。将来の変更を考慮し、接続時には Lace から返された設定を優先し、静的値は `getConfiguration()` が使えない場合だけのフォールバックにする。
+
+| Network | Indexer | Proof server |
+|---|---|---|
+| Preview | `https://indexer.preview.midnight.network/api/v4/graphql` | `https://proof-server.preview.midnight.network` |
+| PreProd | `https://indexer.preprod.midnight.network/api/v4/graphql` | `https://proof-server.preprod.midnight.network` |
+| Undeployed (local) | `http://127.0.0.1:8088/api/v3/graphql` | `http://127.0.0.1:6300` |
+
+URI 不一致を診断するときは、まず `requestedNetwork`、Lace の `connectorUris`、アプリの fallback URI をログに出す。Indexer の API 世代、WebSocket URI、Proof server のいずれかが異なる場合は、アプリのネットワーク定義を更新してから再試行する。
+
 ---
 
 ## 3. ウォレット状態の取得
@@ -306,6 +319,8 @@ export function createProviders<K extends string, S extends string, P>(
   };
 }
 ```
+
+Preview / PreProd は上記のように Lace が返す HTTPS Proof Server をそのまま使う。`127.0.0.1:6300` 用の Vite プロキシは Standalone のみで使用する。テストネットでも常にローカル proxy を選ぶと、接続には成功しても証明生成が失敗する。
 
 ---
 
@@ -457,18 +472,21 @@ export const useWallet = () => {
 ## 8. ネットワーク設定
 
 ```typescript
-import { setNetworkId, NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 
 // アプリ起動時に一度だけ呼ぶ
-setNetworkId(NetworkId.TestNet);      // テストネット
-setNetworkId(NetworkId.Undeployed);   // スタンドアロン（ローカル）
+setNetworkId('preview');      // Preview テストネット
+// setNetworkId('preprod');    // PreProd テストネット
+// setNetworkId('undeployed'); // スタンドアロン（ローカル）
 ```
 
-| 環境 | NetworkId | indexerUri |
-|------|-----------|-----------|
-| Testnet | `TestNet` | `https://indexer.testnet-02.midnight.network/api/v1/graphql` |
-| Standalone | `Undeployed` | `http://127.0.0.1:8088/api/v1/graphql` |
-| Preview | `TestNet` | `https://indexer.preview.midnight.network/api/v1/graphql` |
+| 環境 | NetworkId | indexerUri | Proof Server |
+|------|-----------|------------|--------------|
+| Preview | `preview` | `https://indexer.preview.midnight.network/api/v4/graphql` | `https://proof-server.preview.midnight.network` |
+| PreProd | `preprod` | `https://indexer.preprod.midnight.network/api/v4/graphql` | `https://proof-server.preprod.midnight.network` |
+| Standalone | `undeployed` | `http://127.0.0.1:8088/api/v3/graphql` | `http://127.0.0.1:6300` |
+
+`setNetworkId()` と Lace のネットワーク選択、アプリが保持する URI 定義は必ず同じ環境にそろえる。Lace v4 が `getConfiguration()` を提供する場合は、その値を `indexerPublicDataProvider` と `httpClientProofProvider` に渡す。
 
 ---
 
@@ -548,6 +566,8 @@ yarn add -D \
 | `Incompatible version` | Lace のバージョン古い | Lace アップデートを促す |
 | `timeout` (10s) | Lace がロックされている | unlock してから再接続 |
 | `network mismatch` | Lace の設定ネットワークが不一致 | Lace Settings → Midnight network |
+| `connector network mismatch` で Lace の URI が `api/v4`、アプリ側が `api/v3` | アプリの静的ネットワーク定義が古い | Lace の URI を正とし、Preview / PreProd の Indexer、WebSocket、Proof Server 定義を更新 |
+| `Wallet is unavailable` が `getShieldedAddresses()` から返る | Lace の Midnight wallet が起動・同期中、または拡張機能内の復元に失敗 | Lace を unlock して同期完了まで待ち、短い上限付きリトライを行う。Service Worker の ParseError が続く場合は拡張機能側の問題として扱い、復旧フレーズ確認前に拡張機能データを消さない |
 | `user rejected` | ユーザーが接続拒否 | 再接続ボタンを表示 |
 | `verifier key` エラー | コントラクトとランタイムのバージョン不一致 | コントラクト再コンパイル |
 
@@ -570,9 +590,10 @@ const truncateAddress = (address: string) =>
 - [ ] `connectToWallet()` で Lace v4 / レガシー両対応
 - [ ] 6つのプロバイダーをすべて初期化
 - [ ] Vite設定に wasm / commonjs / polyfill を追加
-- [ ] Proof server の起動確認（`/api/v1/graphql` ヘルスチェック）
+- [ ] Preview / PreProd の URI は Lace `getConfiguration()` の `api/v4` / HTTPS Proof Server と照合する
+- [ ] ローカル Proof Server の起動確認は Standalone のときだけ行う
 - [ ] ネットワーク設定を環境変数で切り替え可能にする
 - [ ] コントラクトアドレスを LocalStorage / URL パラメータで保持
 - [ ] **複数ネットワークを切替可能にするなら**、`privateStateStoreName` とコントラクトアドレスの LocalStorage キーをネットワークIDでスコープする（分離しないと Preprod/Preview 間で秘匿状態やアドレスが混ざる。[`references/providers.md`](references/providers.md) 参照）
-- [ ] Proof Server への fetch を `window.location.origin` 経由の同一オリジンパスにし、Vite dev サーバーでプロキシする（Lace の Service Worker が `127.0.0.1` への直接 fetch をブロックするため。本番デプロイ時は別途 HTTPS Proof Server へのリライトが必要）
+- [ ] Standalone の Proof Server への fetch だけを `window.location.origin` 経由の同一オリジンパスにして Vite dev サーバーでプロキシする（Lace の Service Worker が `127.0.0.1` への直接 fetch をブロックするため）。Preview / PreProd は Lace が返す HTTPS URI を直接使用する
 - [ ] **本番ビルドだけ**を実際にブラウザで開いて検証する（`vite build && vite preview` 相当）。開発サーバーの esbuild 事前バンドルでは検出できない `exports is not defined` のような Rollup CJS 変換バグが本番ビルドにのみ現れることがある（[`references/build-config.md`](references/build-config.md) 参照）

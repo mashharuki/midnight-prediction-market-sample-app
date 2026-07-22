@@ -76,7 +76,9 @@ const USER_MESSAGES: Record<MidnightWalletErrorType, string> = {
 | `verifier key` を含む | コントラクトのコンパイルバージョン不一致 | `yarn compact` で再コンパイル、ZKキーを再配置 |
 | `insufficient funds` | tDUST 残高不足 | テストネットフォーセットで補充 |
 | `proof server` / `connection refused` | Proof Server 未起動 | `docker compose up proof-server` |
+| Preview / PreProd で `proof server` / `connection refused` | テストネット向け HTTPS Proof Server ではなく `127.0.0.1:6300` を使用している | `getConfiguration()` が返す `proverServerUri` を使用する。ローカル proxy は Standalone に限定する |
 | `indexer` / `ECONNREFUSED` | Indexer 未起動またはURL不正 | Lace のネットワーク設定を確認 |
+| `connector network mismatch` かつ Lace の `indexerUri` が `api/v4`、アプリ設定が `api/v3` | Lace 更新後にアプリのテストネット URI 定義が古くなった | Preview / PreProd の Indexer / WebSocket / Proof Server を `getConfiguration()` の値に合わせる。接続成功後の Lace 設定を古い fallback と比較して拒否しない |
 | `contract not found` | 指定アドレスにコントラクトが存在しない | アドレスを確認、または再デプロイ |
 | `private state not found` | プライベート状態の初期化漏れ | `initialPrivateState` を正しく渡す |
 | Proof Server への fetch が `net::ERR_FAILED`（`127.0.0.1:6300`宛） | Lace の Service Worker がページの fetch をインターセプトしており、Service Worker コンテキストから `127.0.0.1` への直接 fetch を Chrome がブロックしている | 同一オリジンのパス（例: `/proof-server`）にして Vite dev サーバーでプロキシする。詳細は [`build-config.md`](build-config.md) 罠その2 |
@@ -103,11 +105,11 @@ const checkIndexer = async (uri: string) => {
   console.log('Indexer:', await res.json());
 };
 
-// 3. Wallet 状態の確認
-const walletState = await walletAPI.state();
+// 3. Lace v4 の Wallet 状態の確認（state() は legacy API）
+const walletState = await walletAPI.getShieldedAddresses();
 console.log('Wallet state:', {
-  address: walletState.address.substring(0, 20) + '...',
-  coinPublicKey: walletState.coinPublicKey.substring(0, 20) + '...',
+  address: walletState.shieldedAddress.substring(0, 20) + '...',
+  coinPublicKey: walletState.shieldedCoinPublicKey.substring(0, 20) + '...',
 });
 
 // 4. プロバイダーの検証

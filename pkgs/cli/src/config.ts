@@ -51,7 +51,7 @@ export class PreviewConfig implements Config {
   indexer = MIDNIGHT_NETWORK_ENDPOINTS.preview.indexer;
   indexerWS = MIDNIGHT_NETWORK_ENDPOINTS.preview.indexerWS;
   node = MIDNIGHT_NETWORK_ENDPOINTS.preview.node;
-  proofServer = DEFAULT_PROOF_SERVER_URL;
+  proofServer = MIDNIGHT_NETWORK_ENDPOINTS.preview.proofServer;
   constructor() {
     setNetworkId("preview");
   }
@@ -62,7 +62,7 @@ export class PreprodConfig implements Config {
   indexer = MIDNIGHT_NETWORK_ENDPOINTS.preprod.indexer;
   indexerWS = MIDNIGHT_NETWORK_ENDPOINTS.preprod.indexerWS;
   node = MIDNIGHT_NETWORK_ENDPOINTS.preprod.node;
-  proofServer = DEFAULT_PROOF_SERVER_URL;
+  proofServer = MIDNIGHT_NETWORK_ENDPOINTS.preprod.proofServer;
   constructor() {
     setNetworkId("preprod");
   }

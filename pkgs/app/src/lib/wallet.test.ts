@@ -239,6 +239,32 @@ describe("Lace v4 detection", () => {
     }
   });
 
+  it("retries when the extension bridge omits the API error code", async () => {
+    vi.useFakeTimers();
+    try {
+      const connector: LaceV4Connector = {
+        apiVersion: "4.0.0",
+        connect: vi.fn().mockResolvedValue({} as LaceV4WalletAPI),
+        getShieldedAddresses: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Wallet is unavailable"))
+          .mockResolvedValue({
+            shieldedAddress: state.address,
+            shieldedCoinPublicKey: state.coinPublicKey,
+            shieldedEncryptionPublicKey: state.encryptionPublicKey,
+          }),
+      };
+
+      const result = connectWithLaceV4(connector, "preview");
+      const assertion = expect(result).resolves.toMatchObject({ state });
+      await vi.runAllTimersAsync();
+      await assertion;
+      expect(connector.getShieldedAddresses).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("raises WalletUnavailableError after exhausting startup retries", async () => {
     vi.useFakeTimers();
     try {
@@ -264,6 +290,49 @@ describe("Lace v4 detection", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("retries connect while the Lace Midnight wallet is starting", async () => {
+    vi.useFakeTimers();
+    try {
+      const connector: LaceV4Connector = {
+        apiVersion: "4.0.0",
+        connect: vi
+          .fn()
+          .mockRejectedValueOnce(
+            new APIError(ErrorCodes.InternalError, "Wallet is unavailable"),
+          )
+          .mockResolvedValue({} as LaceV4WalletAPI),
+        getShieldedAddresses: vi.fn().mockResolvedValue({
+          shieldedAddress: state.address,
+          shieldedCoinPublicKey: state.coinPublicKey,
+          shieldedEncryptionPublicKey: state.encryptionPublicKey,
+        }),
+      };
+
+      const result = connectWithLaceV4(connector, "preview");
+      const assertion = expect(result).resolves.toMatchObject({ state });
+      await vi.runAllTimersAsync();
+      await assertion;
+      expect(connector.connect).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("explains an invalid Lace network selection", async () => {
+    const connector: LaceV4Connector = {
+      apiVersion: "4.0.0",
+      connect: vi
+        .fn()
+        .mockRejectedValue(
+          new APIError(ErrorCodes.InternalError, "Invalid network ID"),
+        ),
+    };
+
+    await expect(
+      connectWithLaceV4(connector, "preview"),
+    ).rejects.toBeInstanceOf(NetworkMismatchError);
   });
 
   it("preserves the Lace wallet receiver when reading shielded addresses", async () => {

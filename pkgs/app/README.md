@@ -72,8 +72,8 @@ bun run format   # Biome フォーマット
 ## 前提条件
 
 - [Lace Wallet](https://www.lace.io/) ブラウザ拡張機能（Midnight 対応版）をインストール済みであること
-- Lace の設定で **PreProd** ネットワークが選択されていること
-- ZK 証明が必要な操作を行う場合は Proof Server（ポート 6300）を起動すること
+- Lace の設定で、アプリのネットワーク選択と同じ **Preview** または **PreProd** ネットワークが選択されていること
+- Preview / PreProd では Lace が設定するホスト型 Proof Server を使用するため、ローカル Proof Server は不要です。Standalone (local) のみポート 6300 の Proof Server が必要です
 
 ```bash
 # プロジェクトルートから Midnight ローカルインフラを起動する場合

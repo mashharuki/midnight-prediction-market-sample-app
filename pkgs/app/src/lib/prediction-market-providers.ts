@@ -58,7 +58,12 @@ export function createPredictionMarketProviders(
     `${window.location.origin}/managed/prediction-market`,
     fetch.bind(window),
   );
-  const proverServerUri = `${window.location.origin}/proof-server`;
+  // Testnets expose a CORS-enabled hosted prover through Lace's configuration.
+  // The same-origin Vite proxy remains necessary only for the local standalone
+  // proof server, whose loopback URL cannot be fetched by Lace's service worker.
+  const proverServerUri = networkId === "undeployed"
+    ? `${window.location.origin}/proof-server`
+    : uris.proverServerUri;
   return {
     privateStateProvider: levelPrivateStateProvider({
       privateStoragePasswordProvider: () => "hidden-league-forecast-v1",

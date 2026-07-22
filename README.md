@@ -157,7 +157,7 @@ Before submission, clone the repository into a clean directory and repeat the co
 ```bash
 ──────────────────────────────────────────────────────────────
   Prediction Market Actions    DUST: 160,771,839,999,999,997
-  Contract: 596cc73e3bd57c086954696772902d5eb46022de3b0f488dbe6d173c23610457
+  Contract: 660dc040ba8c6d6c4619f0233b1f97ad366bc5fbb793fbdd1522e1368a3f82c3
 ──────────────────────────────────────────────────────────────
 ```
 

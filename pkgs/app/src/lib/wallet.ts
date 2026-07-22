@@ -119,9 +119,20 @@ export function classifyWalletConnectError(error: unknown): Error {
  */
 function isWalletInstanceUnavailable(error: unknown): boolean {
   const { code, reason, message } = getWalletErrorDetails(error);
+  const details = `${reason ?? ""} ${message}`.toLowerCase();
   return (
-    code === ErrorCodes.InternalError &&
-    `${reason ?? ""} ${message}`.toLowerCase().includes("wallet is unavailable")
+    (code === ErrorCodes.InternalError || code === undefined) &&
+    details.includes("wallet is unavailable")
+  );
+}
+
+function isNetworkSelectionError(error: unknown): boolean {
+  const { code, reason, message } = getWalletErrorDetails(error);
+  const details = `${code ?? ""} ${reason ?? ""} ${message}`.toLowerCase();
+  return (
+    details.includes("network mismatch") ||
+    details.includes("invalid network") ||
+    details.includes("unsupported network")
   );
 }
 
@@ -263,22 +274,22 @@ export async function connectWithConnector(
 
 function normalizeV4Configuration(
   config: LaceV4Configuration,
+  fallback: ServiceUriConfig,
 ): ServiceUriConfig {
   return {
-    indexerUri: config.indexerUri ?? config.indexerUrl ?? "",
+    indexerUri: config.indexerUri ?? config.indexerUrl ?? fallback.indexerUri,
     indexerWsUri:
       config.indexerWsUri ??
       config.indexerWsUrl ??
       config.indexerWebSocketUrl ??
-      "",
+      fallback.indexerWsUri,
     proverServerUri:
       config.proverServerUri ??
       config.proofServerUri ??
       config.proverUri ??
       config.proofServerUrl ??
-      "",
-    substrateNodeUri:
-      config.substrateNodeUri ?? config.nodeUri ?? config.substrateUri ?? "",
+      fallback.proverServerUri,
+    substrateNodeUri: config.substrateNodeUri ?? config.nodeUri ?? config.substrateUri ?? fallback.substrateNodeUri,
   };
 }
 
@@ -356,13 +367,38 @@ export async function connectWithLaceV4(
   connector: LaceV4Connector,
   networkId: NetworkId,
 ): Promise<WalletConnectionResult> {
-  let wallet: LaceV4WalletAPI;
-  try {
-    wallet = await connector.connect(networkId);
-  } catch (error: unknown) {
-    logConnectorFailure("connect", networkId, error);
-    throw classifyWalletConnectError(error);
+  let wallet: LaceV4WalletAPI | undefined;
+  for (
+    let attempt = 1;
+    attempt <= WALLET_UNAVAILABLE_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    try {
+      wallet = await connector.connect(networkId);
+      break;
+    } catch (error: unknown) {
+      if (
+        isWalletInstanceUnavailable(error) &&
+        attempt < WALLET_UNAVAILABLE_MAX_ATTEMPTS
+      ) {
+        console.warn(
+          "[wallet] Lace midnight wallet not started yet; retrying",
+          {
+            attempt,
+            networkId,
+          },
+        );
+        await sleep(WALLET_UNAVAILABLE_RETRY_DELAY_MS);
+        continue;
+      }
+      logConnectorFailure("connect", networkId, error);
+      if (isNetworkSelectionError(error)) {
+        throw new NetworkMismatchError(NETWORKS[networkId].label);
+      }
+      throw classifyWalletConnectError(error);
+    }
   }
+  if (!wallet) throw new WalletUnavailableError();
 
   let uris: ServiceUriConfig;
   const walletConfigurationReader = wallet.getConfiguration;
@@ -381,7 +417,10 @@ export async function connectWithLaceV4(
   uris = NETWORKS[networkId].fallbackUris;
   for (const readConfiguration of configurationReaders) {
     try {
-      uris = normalizeV4Configuration(await readConfiguration());
+      uris = normalizeV4Configuration(
+        await readConfiguration(),
+        NETWORKS[networkId].fallbackUris,
+      );
       break;
     } catch (error: unknown) {
       console.warn(

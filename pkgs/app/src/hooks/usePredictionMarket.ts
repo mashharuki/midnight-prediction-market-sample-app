@@ -53,23 +53,23 @@ export type PersonalPosition = {
 };
 
 const hasParticipant = (
-  keys: ReadonlySet<Uint8Array>,
+  keys: Iterable<Uint8Array>,
   participantKeyHex: string,
 ) => Array.from(keys).some((key) => toHex(key) === participantKeyHex);
 
 const participantReward = (
-  rewards: ReadonlyMap<Uint8Array, bigint>,
+  rewards: Iterable<readonly [Uint8Array, bigint]>,
   participantKeyHex: string,
 ) =>
-  Array.from(rewards.entries()).find(
+  Array.from(rewards).find(
     ([key]) => toHex(key) === participantKeyHex,
   )?.[1] ?? null;
 
-const participantStake = (
-  stakes: ReadonlyMap<Uint8Array, bigint>,
+export const participantStake = (
+  stakes: Iterable<readonly [Uint8Array, bigint]>,
   participantKeyHex: string,
 ) =>
-  Array.from(stakes.entries()).find(
+  Array.from(stakes).find(
     ([key]) => toHex(key) === participantKeyHex,
   )?.[1] ?? null;
 

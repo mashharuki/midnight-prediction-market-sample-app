@@ -9,13 +9,13 @@ import { NetworkContext } from "./networkContextDef";
 
 function loadStoredNetworkId(): NetworkId {
   const stored = localStorage.getItem(NETWORK_STORAGE_KEY);
-  return stored === "preprod" || stored === "preview"
+  return stored === "undeployed" || stored === "preprod" || stored === "preview"
     ? stored
     : DEFAULT_NETWORK_ID;
 }
 
 /**
- * ユーザーが選択したネットワーク(preprod/preview)を管理するコンテキストプロバイダー。
+ * ユーザーが選択したネットワークを管理するコンテキストプロバイダー。
  * 選択は localStorage に永続化し、次回起動時に復元する。
  * WalletProvider より外側に配置し、接続前にネットワークを確定できるようにする。
  */

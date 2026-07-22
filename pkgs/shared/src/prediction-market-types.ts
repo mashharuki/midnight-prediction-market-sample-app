@@ -46,6 +46,23 @@ export type DeployedPredictionMarketContract =
   // biome-ignore lint/suspicious/noExplicitAny: SDK deployment type requires generated circuit mapping
   | FoundContract<any>;
 
+/**
+ * Compact's map representation is iterable and provides lookup/member methods,
+ * but is not a JavaScript Map (it does not expose entries()).
+ */
+export type CompactMap<K, V> = Iterable<readonly [K, V]> & {
+  isEmpty(): boolean;
+  size(): bigint;
+  member(key: K): boolean;
+  lookup(key: K): V;
+};
+
+export type CompactSet<T> = Iterable<T> & {
+  isEmpty(): boolean;
+  size(): bigint;
+  member(value: T): boolean;
+};
+
 export type PredictionMarketLedgerState = {
   phase: MarketPhase;
   admin_key: Uint8Array;
@@ -59,12 +76,12 @@ export type PredictionMarketLedgerState = {
   winning_team: Team;
   result_set: boolean;
   total_claimed_rewards: bigint;
-  commitments: ReadonlyMap<Uint8Array, Uint8Array>;
-  stakes: ReadonlyMap<Uint8Array, bigint>;
-  participants: ReadonlySet<Uint8Array>;
-  revealed: ReadonlySet<Uint8Array>;
-  claimed: ReadonlySet<Uint8Array>;
-  rewards: ReadonlyMap<Uint8Array, bigint>;
+  commitments: CompactMap<Uint8Array, Uint8Array>;
+  stakes: CompactMap<Uint8Array, bigint>;
+  participants: CompactSet<Uint8Array>;
+  revealed: CompactSet<Uint8Array>;
+  claimed: CompactSet<Uint8Array>;
+  rewards: CompactMap<Uint8Array, bigint>;
 };
 
 export const teamPool = (

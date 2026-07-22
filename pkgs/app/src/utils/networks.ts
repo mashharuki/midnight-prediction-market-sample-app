@@ -1,6 +1,5 @@
 import type { ServiceUriConfig } from "@midnight-ntwrk/dapp-connector-api";
 import {
-  DEFAULT_PROOF_SERVER_URL,
   MIDNIGHT_NETWORK_ENDPOINTS,
   type MidnightNetworkId,
 } from "shared";
@@ -9,7 +8,11 @@ import {
 export type NetworkId = MidnightNetworkId;
 
 /** ユーザーが選択可能なネットワークの表示順 */
-export const NETWORK_IDS: readonly NetworkId[] = ["preprod", "preview"];
+export const NETWORK_IDS: readonly NetworkId[] = [
+  "undeployed",
+  "preprod",
+  "preview",
+];
 
 /** ネットワーク選択の localStorage キー */
 export const NETWORK_STORAGE_KEY = "network";
@@ -30,6 +33,7 @@ export interface NetworkDefinition {
 }
 
 const NETWORK_LABELS: Record<NetworkId, string> = {
+  undeployed: "Standalone (local)",
   preprod: "PreProd Testnet",
   preview: "Preview Testnet",
 };
@@ -44,7 +48,7 @@ export const NETWORKS: Record<NetworkId, NetworkDefinition> =
         fallbackUris: {
           indexerUri: endpoints.indexer,
           indexerWsUri: endpoints.indexerWS,
-          proverServerUri: DEFAULT_PROOF_SERVER_URL,
+          proverServerUri: endpoints.proofServer,
           substrateNodeUri: endpoints.node,
         },
       };
