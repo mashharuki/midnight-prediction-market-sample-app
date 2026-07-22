@@ -1,7 +1,7 @@
-import { formatBalance } from "@/lib/utils";
-import type { BalanceState } from "@/utils/types";
 import type { DAppConnectorWalletAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { useCallback, useState } from "react";
+import { formatBalance } from "@/lib/utils";
+import type { BalanceState } from "@/utils/types";
 
 export type { BalanceState };
 

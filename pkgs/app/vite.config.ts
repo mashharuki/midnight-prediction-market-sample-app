@@ -520,7 +520,7 @@ export default defineConfig({
     alias: [
       { find: "@", replacement: path.resolve(__dirname, "./src") },
       // Ensure compact-runtime always resolves from app's node_modules regardless
-      // of which workspace package (contract/counter or contract/rps) imports it.
+      // of which workspace package imports it.
       // Without this, Rollup can't find compact-runtime when resolving from
       // pkgs/contract/dist/managed/*/contract/index.js in production builds.
       {

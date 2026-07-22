@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 
 /**
  * 右上に固定表示される言語切り替えボタン。

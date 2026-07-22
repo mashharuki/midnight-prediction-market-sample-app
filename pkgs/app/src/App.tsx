@@ -6,7 +6,7 @@ import { useWallet } from "./contexts/useWallet";
 /**
  * アプリのルートコンポーネント。
  * ウォレットの接続状態に応じて表示を切り替える：
- * - connected → ウォレット情報カード (AddressCard) + RPS ゲーム
+ * - connected → 予測市場
  * - それ以外  → 接続ボタン画面 (ConnectSection)
  */
 function App() {

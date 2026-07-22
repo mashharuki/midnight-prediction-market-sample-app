@@ -1,9 +1,9 @@
+import { createContext } from "react";
 import type {
   WalletConnectionResult,
   WalletContextValue,
   WalletState,
 } from "@/utils/types";
-import { createContext } from "react";
 
 export type { WalletConnectionResult, WalletContextValue, WalletState };
 

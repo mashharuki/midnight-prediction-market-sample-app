@@ -1,63 +1,25 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="28" failures="0" errors="0" time="2.11747475">
-    <testsuite name="src/test/prediction-market.test.ts" timestamp="2026-07-13T15:19:51.959Z" hostname="kondouhiranoMBP" tests="10" failures="0" errors="0" skipped="0" time="1.141759875">
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; commits public stake while keeping team out of team pools" time="0.119752666">
+<testsuites name="vitest tests" tests="10" failures="0" errors="0" time="1.857032501">
+    <testsuite name="src/test/prediction-market.test.ts" timestamp="2026-07-22T08:39:57.609Z" hostname="d2362caeeb8e" tests="10" failures="0" errors="0" skipped="0" time="1.857032501">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; commits public stake while keeping team out of team pools" time="0.159107667">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects duplicate and out-of-range commitments" time="0.086946292">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects duplicate and out-of-range commitments" time="0.118867875">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; allows only the administrator to advance phases" time="0.085416083">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; allows only the administrator to advance phases" time="0.167518792">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects operations outside their phase and backward transitions" time="0.095608375">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects operations outside their phase and backward transitions" time="0.119581417">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; reveals committed predictions into team pools" time="0.117811666">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; reveals committed predictions into team pools" time="0.271233042">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; allows only the administrator to resolve" time="0.098652458">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; allows only the administrator to resolve" time="0.150297458">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects a modified private prediction" time="0.091449375">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects a modified private prediction" time="0.142292084">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects resolving an outcome with no revealed pool" time="0.098639375">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; rejects resolving an outcome with no revealed pool" time="0.138261875">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; pays floor-rounded pari-mutuel rewards exactly once" time="0.152292583">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; pays floor-rounded pari-mutuel rewards exactly once" time="0.216559209">
         </testcase>
-        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; floor-rounds multiple winners without exceeding the pool" time="0.193376542">
-        </testcase>
-    </testsuite>
-    <testsuite name="src/test/rps.test.ts" timestamp="2026-07-13T15:19:51.960Z" hostname="kondouhiranoMBP" tests="18" failures="0" errors="0" skipped="0" time="0.975714875">
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; initial ledger state &gt; starts in waiting state with no players joined" time="0.057010209">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; rock vs rock → draw" time="0.063231291">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; rock vs paper → player2_wins" time="0.055631375">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; rock vs scissors → player1_wins" time="0.056206">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; paper vs rock → player1_wins" time="0.056112333">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; paper vs paper → draw" time="0.057096167">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; paper vs scissors → player2_wins" time="0.053933792">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; scissors vs rock → player2_wins" time="0.053959875">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; scissors vs paper → player1_wins" time="0.055090542">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; who_wins() — all 9 move combinations &gt; scissors vs scissors → draw" time="0.05429675">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; make_commit() — commitment binding and hiding &gt; binding: same move + same salt → identical commitment hash" time="0.065566292">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; make_commit() — commitment binding and hiding &gt; hiding: same move + different salt → different commitment hash" time="0.059393708">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; make_commit() — commitment binding and hiding &gt; hiding: different moves + same salt → different commitment hash" time="0.057578334">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; double-commit rejection (Req 1.4) &gt; no commit is accepted after both players are committed (P1 tries)" time="0.036306083">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; double-commit rejection (Req 1.4) &gt; no commit is accepted after both players are committed (P2 tries)" time="0.03547125">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; double-reveal rejection (Req 2.5) &gt; P1 cannot reveal a second time" time="0.043559125">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; double-reveal rejection (Req 2.5) &gt; P2 cannot reveal after game is over" time="0.051074958">
-        </testcase>
-        <testcase classname="src/test/rps.test.ts" name="RPS smart contract &gt; full game state progression &gt; state transitions: waiting → committed → finished" time="0.06128">
+        <testcase classname="src/test/prediction-market.test.ts" name="private football prediction market &gt; floor-rounds multiple winners without exceeding the pool" time="0.371111625">
         </testcase>
     </testsuite>
 </testsuites>

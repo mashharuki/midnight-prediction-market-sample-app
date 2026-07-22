@@ -110,3 +110,12 @@ Before submission, clone the repository into a clean directory and repeat the co
 - The deploying browser is a trusted steward and resolves the winner.
 - There is no dispute window, external oracle, real collateral, secondary trading, or permissionless market creation.
 - A production market should use a multisig or optimistic oracle, explicit deadlines, asset custody rules, and an audit.
+
+## Deployed Contract Info
+
+```bash
+──────────────────────────────────────────────────────────────
+  Prediction Market Actions    DUST: 160,771,839,999,999,997
+  Contract: 596cc73e3bd57c086954696772902d5eb46022de3b0f488dbe6d173c23610457
+──────────────────────────────────────────────────────────────
+```

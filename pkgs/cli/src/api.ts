@@ -62,20 +62,21 @@ import {
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 import { Buffer } from "buffer";
 import {
-  INITIAL_RPS_PRIVATE_STATE,
-  Rps,
-  type RpsPrivateState,
-  rpsWitnesses,
+  createInitialPredictionMarketPrivateState,
+  PredictionMarket,
+  type PredictionMarketPrivateState,
+  predictionMarketWitnesses,
 } from "contract";
 import type { Logger } from "pino";
 import * as Rx from "rxjs";
 import {
-  type DeployedRpsContract,
+  type DeployedPredictionMarketContract,
   faucetUrlFor,
-  type RpsCircuits,
-  type RpsLedgerState,
-  RpsPrivateStateId,
-  type RpsProviders,
+  type PredictionMarketCircuits,
+  type PredictionMarketLedgerState,
+  PredictionMarketPrivateStateId,
+  type PredictionMarketProviders,
+  teamPool,
 } from "shared";
 import { WebSocket } from "ws";
 import { type Config, currentDir } from "./config";
@@ -691,10 +692,10 @@ export function setLogger(_logger: Logger) {
   logger = _logger;
 }
 
-// ─── RPS ─────────────────────────────────────────────────────────────────────
+// ─── Prediction market ──────────────────────────────────────────────────────
 
-const rpsContractConfig = {
-  privateStateStoreName: "rps-private-state",
+const predictionMarketContractConfig = {
+  privateStateStoreName: "prediction-market-private-state",
   zkConfigPath: path.resolve(
     currentDir,
     "..",
@@ -702,38 +703,42 @@ const rpsContractConfig = {
     "contract",
     "src",
     "managed",
-    "rps",
+    "prediction-market",
   ),
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CC = CompiledContract as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const rpsCompiledContract = CC.make("rps", Rps.Contract).pipe(
-  CC.withWitnesses(rpsWitnesses),
-  CC.withCompiledFileAssets(rpsContractConfig.zkConfigPath),
+const predictionMarketCompiledContract = CC.make(
+  "prediction-market",
+  PredictionMarket.Contract,
+).pipe(
+  CC.withWitnesses(predictionMarketWitnesses),
+  CC.withCompiledFileAssets(predictionMarketContractConfig.zkConfigPath),
 );
 
 /**
- * Configure midnight-js providers for RPS contract interaction.
- * Accepts an optional `accountId` to support multi-player scenarios where
- * each player needs a separate LevelDB namespace for private state isolation.
+ * Configure midnight-js providers for prediction-market interaction.
  */
-export const configureRpsProviders = async (
+export const configurePredictionMarketProviders = async (
   ctx: WalletContext,
   config: Config,
   accountId?: string,
-): Promise<RpsProviders> => {
+): Promise<PredictionMarketProviders> => {
   const walletAndMidnightProvider = await createWalletAndMidnightProvider(ctx);
   const effectiveAccountId =
     accountId ?? walletAndMidnightProvider.getCoinPublicKey();
   const storagePassword = `${Buffer.from(effectiveAccountId, "hex").toString("base64")}!`;
-  const zkConfigProvider = new NodeZkConfigProvider<RpsCircuits>(
-    rpsContractConfig.zkConfigPath,
+  const zkConfigProvider = new NodeZkConfigProvider<PredictionMarketCircuits>(
+    predictionMarketContractConfig.zkConfigPath,
   );
   return {
-    privateStateProvider: levelPrivateStateProvider<typeof RpsPrivateStateId>({
-      privateStateStoreName: rpsContractConfig.privateStateStoreName,
+    privateStateProvider: levelPrivateStateProvider<
+      typeof PredictionMarketPrivateStateId
+    >({
+      privateStateStoreName:
+        predictionMarketContractConfig.privateStateStoreName,
       accountId: effectiveAccountId,
       privateStoragePasswordProvider: () => storagePassword,
     }),
@@ -751,103 +756,149 @@ export const configureRpsProviders = async (
   };
 };
 
-export const deployRps = async (
-  providers: RpsProviders,
-  initialPrivateState: RpsPrivateState,
-): Promise<DeployedRpsContract> => {
-  logger.info("Deploying RPS contract...");
-  const rpsContract = await deployContract(providers, {
+export const deployPredictionMarket = async (
+  providers: PredictionMarketProviders,
+): Promise<DeployedPredictionMarketContract> => {
+  logger.info("Deploying prediction-market contract...");
+  const contract = await deployContract(providers, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    compiledContract: rpsCompiledContract as any,
-    privateStateId: RpsPrivateStateId,
-    initialPrivateState,
+    compiledContract: predictionMarketCompiledContract as any,
+    privateStateId: PredictionMarketPrivateStateId,
+    initialPrivateState: createInitialPredictionMarketPrivateState(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args: [] as any,
   });
   logger.info(
-    `Deployed RPS contract at: ${rpsContract.deployTxData.public.contractAddress}`,
+    `Deployed prediction-market contract at: ${contract.deployTxData.public.contractAddress}`,
   );
-  return rpsContract as unknown as DeployedRpsContract;
+  return contract as unknown as DeployedPredictionMarketContract;
 };
 
-export const joinRps = async (
-  providers: RpsProviders,
+export const joinPredictionMarket = async (
+  providers: PredictionMarketProviders,
   contractAddress: string,
-): Promise<DeployedRpsContract> => {
+): Promise<DeployedPredictionMarketContract> => {
   assertIsContractAddress(contractAddress);
-  logger.info(`Joining RPS contract at: ${contractAddress}`);
-  const rpsContract = await findDeployedContract(providers, {
+  logger.info(`Joining prediction market at: ${contractAddress}`);
+  const contract = await findDeployedContract(providers, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     contractAddress: contractAddress as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    compiledContract: rpsCompiledContract as any,
-    privateStateId: RpsPrivateStateId,
-    initialPrivateState: INITIAL_RPS_PRIVATE_STATE,
+    compiledContract: predictionMarketCompiledContract as any,
+    privateStateId: PredictionMarketPrivateStateId,
+    initialPrivateState: createInitialPredictionMarketPrivateState(),
   });
   logger.info(
-    `Joined RPS contract at: ${rpsContract.deployTxData.public.contractAddress}`,
+    `Joined prediction market at: ${contract.deployTxData.public.contractAddress}`,
   );
-  return rpsContract as unknown as DeployedRpsContract;
+  return contract as unknown as DeployedPredictionMarketContract;
 };
 
-/**
- * Commit a move. Updates private state with the chosen move and a random salt
- * before calling the commit() circuit so that witness functions can read them.
- */
-export const commitRps = async (
-  providers: RpsProviders,
-  contract: DeployedRpsContract,
-  move: number,
+export const commitPrediction = async (
+  providers: PredictionMarketProviders,
+  contract: DeployedPredictionMarketContract,
+  team: number,
+  stake: bigint,
 ): Promise<FinalizedTxData> => {
-  logger.info(`Committing move ${move}...`);
+  logger.info(`Committing prediction for team ${team} with stake ${stake}...`);
   const salt = new Uint8Array(32);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).crypto.getRandomValues(salt);
   const current =
-    (await providers.privateStateProvider.get(RpsPrivateStateId)) ??
-    INITIAL_RPS_PRIVATE_STATE;
-  await providers.privateStateProvider.set(RpsPrivateStateId, {
+    (await providers.privateStateProvider.get(
+      PredictionMarketPrivateStateId,
+    )) ?? createInitialPredictionMarketPrivateState();
+  await providers.privateStateProvider.set(PredictionMarketPrivateStateId, {
     ...current,
-    myMove: move,
-    mySalt: salt,
+    selectedTeam: team,
+    stake,
+    salt,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const finalizedTxData = await (contract as any).callTx.commit();
+  const finalizedTxData = await (contract as any).callTx.commit_prediction(
+    stake,
+  );
   logger.info(
     `Commit TX ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
   return finalizedTxData.public as FinalizedTxData;
 };
 
-export const revealRps = async (
-  contract: DeployedRpsContract,
+export const revealPrediction = async (
+  contract: DeployedPredictionMarketContract,
 ): Promise<FinalizedTxData> => {
-  logger.info("Revealing move...");
+  logger.info("Revealing prediction...");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const finalizedTxData = await (contract as any).callTx.reveal();
+  const finalizedTxData = await (contract as any).callTx.reveal_prediction();
   logger.info(
     `Reveal TX ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
   return finalizedTxData.public as FinalizedTxData;
 };
 
-export const getRpsState = async (
-  providers: RpsProviders,
+export const closePredictions = async (
+  contract: DeployedPredictionMarketContract,
+): Promise<FinalizedTxData> =>
+  (await (contract as any).callTx.close_predictions())
+    .public as FinalizedTxData;
+
+export const closeReveal = async (
+  contract: DeployedPredictionMarketContract,
+): Promise<FinalizedTxData> =>
+  (await (contract as any).callTx.close_reveal()).public as FinalizedTxData;
+
+export const resolveMarket = async (
+  contract: DeployedPredictionMarketContract,
+  winner: number,
+): Promise<FinalizedTxData> =>
+  (await (contract as any).callTx.resolve_market(winner))
+    .public as FinalizedTxData;
+
+export const claimReward = async (
+  providers: PredictionMarketProviders,
+  contract: DeployedPredictionMarketContract,
+  state: PredictionMarketLedgerState,
+): Promise<FinalizedTxData> => {
+  const privateState = await providers.privateStateProvider.get(
+    PredictionMarketPrivateStateId,
+  );
+  if (privateState?.stake === null || privateState?.stake === undefined) {
+    throw new Error("No committed prediction exists in this wallet");
+  }
+  const winningPool = teamPool(state, state.winning_team);
+  const reward =
+    winningPool === 0n
+      ? 0n
+      : (state.total_pool * privateState.stake) / winningPool;
+  return (await (contract as any).callTx.claim_reward(reward))
+    .public as FinalizedTxData;
+};
+
+export const getPredictionMarketState = async (
+  providers: PredictionMarketProviders,
   contractAddress: string,
-): Promise<RpsLedgerState | null> => {
+): Promise<PredictionMarketLedgerState | null> => {
   assertIsContractAddress(contractAddress);
-  logger.info("Checking RPS ledger state...");
+  logger.info("Checking prediction-market ledger state...");
   const state = await providers.publicDataProvider
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .queryContractState(contractAddress as any)
     .then((contractState) =>
       contractState != null
         ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (Rps.ledger(contractState.data as any) as unknown as RpsLedgerState)
+          (PredictionMarket.ledger(
+            contractState.data as any,
+          ) as unknown as PredictionMarketLedgerState)
         : null,
     );
   logger.info(
-    `RPS state: ${JSON.stringify(state, (_k, v) => (v instanceof Uint8Array ? `0x${Buffer.from(v).toString("hex").slice(0, 8)}...` : v))}`,
+    `Prediction-market state: ${JSON.stringify(state, (_key, value) => {
+      if (typeof value === "bigint") return value.toString();
+      if (value instanceof Uint8Array) {
+        return `0x${Buffer.from(value).toString("hex").slice(0, 8)}...`;
+      }
+      return value;
+    })}`,
   );
   return state;
 };

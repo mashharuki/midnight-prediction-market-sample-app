@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { defineConfig } from "vitest/config";
 import path from "node:path";
+import { defineConfig } from "vitest/config";
 
 // Bun workspaces store packages under node_modules/.bun/<pkg>@<ver>/node_modules/<pkg>.
 // Vitest (Vite) can't auto-discover them, so we map each @midnight-ntwrk/* package

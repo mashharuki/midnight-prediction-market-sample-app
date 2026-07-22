@@ -1,5 +1,5 @@
-import type { WalletContextValue } from "@/utils/types";
 import { useContext } from "react";
+import type { WalletContextValue } from "@/utils/types";
 import { WalletContext } from "./walletContextDef";
 
 /**

@@ -13,12 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createLogger } from "./logger-utils.js";
+import path from "node:path";
+import { DockerComposeEnvironment, Wait } from "testcontainers";
 import { run } from "./cli.js";
 import { currentDir, PreviewConfig } from "./config.js";
+import { createLogger } from "./logger-utils.js";
 import { isDevcontainer, isProofServerRunning } from "./proof-server-utils.js";
-import { DockerComposeEnvironment, Wait } from "testcontainers";
-import path from "node:path";
 
 const config = new PreviewConfig();
 const logger = await createLogger(config.logDir);

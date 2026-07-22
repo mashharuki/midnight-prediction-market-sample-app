@@ -142,14 +142,14 @@ export class TestEnvironment {
         composeFile,
       )
         .withWaitStrategy(
-          "rps-proof-server",
+          "proof-server-1",
           Wait.forLogMessage(
             "Actix runtime found; starting in Actix runtime",
             1,
           ),
         )
         .withWaitStrategy(
-          "rps-indexer",
+          "indexer-1",
           Wait.forLogMessage(/starting indexing/, 1),
         );
       this.env = await this.dockerEnv.up();
@@ -159,22 +159,22 @@ export class TestEnvironment {
         indexer: mapContainerPort(
           this.env,
           this.testConfig.dappConfig.indexer,
-          "rps-indexer",
+          "indexer-1",
         ),
         indexerWS: mapContainerPort(
           this.env,
           this.testConfig.dappConfig.indexerWS,
-          "rps-indexer",
+          "indexer-1",
         ),
         node: mapContainerPort(
           this.env,
           this.testConfig.dappConfig.node,
-          "rps-node",
+          "node-1",
         ),
         proofServer: mapContainerPort(
           this.env,
           this.testConfig.dappConfig.proofServer,
-          "rps-proof-server",
+          "proof-server-1",
         ),
       };
     }

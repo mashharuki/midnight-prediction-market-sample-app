@@ -16,7 +16,6 @@
     }
   },
   "scripts": {
-    "compact:rps": "compact compile src/rps.compact src/managed/rps",
     "compact": "compact compile src/prediction-market.compact src/managed/prediction-market",
     "test": "vitest run",
     "test:compile": "npm run compact && vitest run",
