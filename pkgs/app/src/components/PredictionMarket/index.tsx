@@ -117,6 +117,8 @@ export function PredictionMarketView() {
   }
 
   const phase = market.ledger?.phase ?? MarketPhase.open;
+  const position = market.position;
+  const committed = position?.isCommitted ?? false;
   return (
     <div className="market-page">
       <header className="market-header animate-fade-in-up">
@@ -167,7 +169,7 @@ export function PredictionMarketView() {
                   className={`team-row animate-fade-in-up ${team === value ? "selected" : ""}`}
                   style={{ animationDelay: `${100 + index * 60}ms` }}
                   onClick={() => setTeam(value)}
-                  disabled={phase !== MarketPhase.open}
+                  disabled={phase !== MarketPhase.open || committed}
                   aria-pressed={team === value}
                 >
                   <span className="team-number">0{index + 1}</span>
@@ -247,6 +249,67 @@ export function PredictionMarketView() {
               <h3>{t(`market.teams.${TEAM_KEYS[team]}.name`)}</h3>
             </div>
           </div>
+          <section className="position-ledger" aria-live="polite">
+            <p className="ticket-label">{t("market.position.label")}</p>
+            {position?.stake !== null && position?.stake !== undefined ? (
+              <>
+                <div className="position-row">
+                  <span>{t("market.position.forecast")}</span>
+                  <strong>
+                    {position.selectedTeam !== null
+                      ? t(
+                          `market.teams.${TEAM_KEYS[position.selectedTeam]}.name`,
+                        )
+                      : "—"}
+                  </strong>
+                </div>
+                <div className="position-row">
+                  <span>{t("market.position.stake")}</span>
+                  <strong>{position.stake.toString()} pts</strong>
+                </div>
+                {!position.hasPrivatePrediction ? (
+                  <p className="position-status warning">
+                    {t("market.position.unavailable")}
+                  </p>
+                ) : null}
+                {position.hasPrivatePrediction && !position.isRevealed ? (
+                  <p className="position-status">
+                    {phase === MarketPhase.open
+                      ? t("market.position.sealed")
+                      : t("market.position.awaitingReveal")}
+                  </p>
+                ) : null}
+                {position.isRevealed && phase !== MarketPhase.resolved ? (
+                  <p className="position-status">
+                    {t("market.position.revealed")}
+                  </p>
+                ) : null}
+                {phase === MarketPhase.resolved && position.isClaimed ? (
+                  <div className="position-reward claimed">
+                    <span>{t("market.position.claimed")}</span>
+                    <strong>{position.reward?.toString() ?? "0"} pts</strong>
+                  </div>
+                ) : null}
+                {phase === MarketPhase.resolved &&
+                !position.isClaimed &&
+                position.isWinner ? (
+                  <div className="position-reward">
+                    <span>{t("market.position.estimatedReward")}</span>
+                    <strong>{position.reward?.toString() ?? "0"} pts</strong>
+                  </div>
+                ) : null}
+                {phase === MarketPhase.resolved &&
+                !position.isClaimed &&
+                !position.isWinner ? (
+                  <p className="position-status">
+                    {t("market.position.notWinner")}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p className="position-status">{t("market.position.noRecord")}</p>
+            )}
+          </section>
           <label htmlFor="stake">
             {t("market.slip.confidence")} <strong>{stake}</strong>
           </label>
@@ -258,7 +321,7 @@ export function PredictionMarketView() {
             step="10"
             value={stake}
             onChange={(event) => setStake(Number(event.target.value))}
-            disabled={phase !== MarketPhase.open}
+            disabled={phase !== MarketPhase.open || committed}
           />
           <div className="range-ends">
             <span>{t("market.slip.careful")}</span>
@@ -267,17 +330,19 @@ export function PredictionMarketView() {
           {phase === MarketPhase.open ? (
             <Button
               onClick={() => market.commit(team, BigInt(stake))}
-              disabled={busy}
+              disabled={busy || committed}
             >
               {t("market.slip.commit")}
             </Button>
           ) : null}
-          {phase === MarketPhase.reveal ? (
+          {phase === MarketPhase.reveal &&
+          position?.hasPrivatePrediction &&
+          !position.isRevealed ? (
             <Button onClick={market.reveal} disabled={busy}>
               {t("market.slip.reveal")}
             </Button>
           ) : null}
-          {phase === MarketPhase.resolved ? (
+          {phase === MarketPhase.resolved && position?.canClaim ? (
             <Button onClick={market.claim} disabled={busy}>
               {t("market.slip.claim")}
             </Button>

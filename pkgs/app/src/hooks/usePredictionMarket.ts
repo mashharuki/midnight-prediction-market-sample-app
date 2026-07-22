@@ -1,12 +1,15 @@
 import type { ContractAddress } from "@midnight-ntwrk/compact-runtime";
+import type { PredictionMarketPrivateState } from "contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Subscription } from "rxjs";
 import {
   type DeployedPredictionMarketContract,
+  floorReward,
   MarketPhase,
   type PredictionMarketLedgerState,
   type Team,
+  teamPool,
 } from "shared";
 import { useNetwork } from "@/contexts/useNetwork";
 import { useWallet } from "@/contexts/useWallet";
@@ -37,6 +40,39 @@ export type MarketAction =
 
 const addressKey = (network: string) => `hidden-league:${network}:contract`;
 
+export type PersonalPosition = {
+  selectedTeam: Team | null;
+  stake: bigint | null;
+  isCommitted: boolean;
+  isRevealed: boolean;
+  isClaimed: boolean;
+  isWinner: boolean;
+  hasPrivatePrediction: boolean;
+  reward: bigint | null;
+  canClaim: boolean;
+};
+
+const hasParticipant = (
+  keys: ReadonlySet<Uint8Array>,
+  participantKeyHex: string,
+) => Array.from(keys).some((key) => toHex(key) === participantKeyHex);
+
+const participantReward = (
+  rewards: ReadonlyMap<Uint8Array, bigint>,
+  participantKeyHex: string,
+) =>
+  Array.from(rewards.entries()).find(
+    ([key]) => toHex(key) === participantKeyHex,
+  )?.[1] ?? null;
+
+const participantStake = (
+  stakes: ReadonlyMap<Uint8Array, bigint>,
+  participantKeyHex: string,
+) =>
+  Array.from(stakes.entries()).find(
+    ([key]) => toHex(key) === participantKeyHex,
+  )?.[1] ?? null;
+
 export function usePredictionMarket() {
   const { t } = useTranslation();
   const { state: walletState } = useWallet();
@@ -61,7 +97,59 @@ export function usePredictionMarket() {
   const [action, setAction] = useState<MarketAction>("idle");
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [participantKeyHex, setParticipantKeyHex] = useState<string | null>(
+    null,
+  );
+  const [privateState, setPrivateState] =
+    useState<PredictionMarketPrivateState | null>(null);
   const subscription = useRef<Subscription | null>(null);
+
+  const position = useMemo<PersonalPosition | null>(() => {
+    if (!ledger || !privateState || !participantKeyHex) return null;
+    const isCommitted = hasParticipant(ledger.participants, participantKeyHex);
+    const isRevealed = hasParticipant(ledger.revealed, participantKeyHex);
+    const isClaimed = hasParticipant(ledger.claimed, participantKeyHex);
+    const publicStake = participantStake(ledger.stakes, participantKeyHex);
+    const selectedTeam =
+      privateState.selectedTeam === null
+        ? null
+        : (privateState.selectedTeam as Team);
+    const hasPrivatePrediction =
+      selectedTeam !== null &&
+      privateState.stake !== null &&
+      privateState.salt !== null &&
+      privateState.stake === publicStake;
+    const isWinner =
+      ledger.result_set &&
+      hasPrivatePrediction &&
+      selectedTeam === ledger.winning_team;
+    const estimatedReward =
+      isWinner && publicStake !== null
+        ? floorReward(
+            ledger.total_pool,
+            publicStake,
+            teamPool(ledger, ledger.winning_team),
+          )
+        : null;
+    const claimedReward = participantReward(ledger.rewards, participantKeyHex);
+
+    return {
+      selectedTeam,
+      stake: publicStake,
+      isCommitted,
+      isRevealed,
+      isClaimed,
+      isWinner,
+      hasPrivatePrediction,
+      reward: claimedReward ?? estimatedReward,
+      canClaim:
+        ledger.phase === MarketPhase.resolved &&
+        hasPrivatePrediction &&
+        isRevealed &&
+        isWinner &&
+        !isClaimed,
+    };
+  }, [ledger, participantKeyHex, privateState]);
 
   useEffect(() => {
     setAddressValue(localStorage.getItem(addressKey(networkId)) ?? "");
@@ -82,6 +170,8 @@ export function usePredictionMarket() {
       setContract(deployed);
       persistAddress(value);
       const identity = await getPredictionIdentity(providers);
+      setParticipantKeyHex(identity.publicKeyHex);
+      setPrivateState(identity.privateState);
       subscription.current?.unsubscribe();
       subscription.current = subscribeToPredictionMarket(
         providers,
@@ -138,6 +228,9 @@ export function usePredictionMarket() {
       if (!providers || !contract) return;
       await savePrediction(providers, team, stake);
       await commitPrediction(contract, stake);
+      const identity = await getPredictionIdentity(providers);
+      setParticipantKeyHex(identity.publicKeyHex);
+      setPrivateState(identity.privateState);
     });
   const reveal = () =>
     run("revealing", async () => {
@@ -168,6 +261,7 @@ export function usePredictionMarket() {
     address,
     setAddress: persistAddress,
     ledger,
+    position,
     action,
     error,
     isAdmin,

@@ -108,6 +108,20 @@ const ja = {
       secretNote:
         "チームとランダムsaltはリビールまでこのブラウザプロファイルに残ります。同じ端末とプロファイルを大切に保管してください。",
     },
+    position: {
+      label: "あなたの明細",
+      forecast: "予測チーム",
+      stake: "賭けポイント",
+      sealed: "予測は封印済み · 受付終了を待っています",
+      awaitingReveal: "公開期間が終わる前に予測を公開してください",
+      revealed: "予測は公開済み · 試合結果を待っています",
+      estimatedReward: "予想報酬",
+      claimed: "報酬を受取済み",
+      notWinner: "この予測は的中しませんでした",
+      unavailable:
+        "このブラウザの秘密の予測がオンチェーンのポジションと一致しません。",
+      noRecord: "このブラウザプロファイルには個人の予測がありません。",
+    },
     pulse: {
       label: "市場の鼓動",
       sealedTitle: "予測はまだ封印されています。",

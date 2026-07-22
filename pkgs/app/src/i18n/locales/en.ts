@@ -108,6 +108,20 @@ const en = {
       secretNote:
         "The team and random salt remain in this browser profile until reveal. Keep this device and profile safe.",
     },
+    position: {
+      label: "YOUR POSITION",
+      forecast: "Forecast",
+      stake: "Points staked",
+      sealed: "Forecast sealed · waiting for predictions to close",
+      awaitingReveal: "Reveal your forecast before the window closes",
+      revealed: "Forecast revealed · awaiting the match result",
+      estimatedReward: "Estimated reward",
+      claimed: "Reward claimed",
+      notWinner: "This forecast did not win",
+      unavailable:
+        "This browser's private forecast does not match the on-chain position.",
+      noRecord: "No personal forecast is stored in this browser profile.",
+    },
     pulse: {
       label: "MARKET PULSE",
       sealedTitle: "The envelopes are still sealed.",
