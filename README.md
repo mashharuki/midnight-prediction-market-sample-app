@@ -74,6 +74,93 @@ This is meaningful temporary privacy, not permanent anonymity: a successful reve
 | `pkgs/cli` | Headless Midnight wallet and network utilities |
 | `pkgs/app` | React/Vite UI, Lace integration, providers, contract state subscription |
 
+## System architecture
+
+Hidden League Forecast is a browser-first dApp. It keeps a prediction's team and
+salt in the participant's private state, while using Midnight's proving flow to
+verify that later reveal and reward-claim transactions match the original
+commitment. The same Compact contract can also be driven through the included
+headless CLI.
+
+```mermaid
+flowchart LR
+  participant["Participant / steward"] --> browser["React + Vite application"]
+  browser <--> lace["Lace Wallet\nDApp Connector API"]
+  browser --> state["Browser private-state store\nsecret key, team, stake, salt"]
+  browser --> assets["Generated ZK assets\nprover keys + ZKIR"]
+
+  lace <--> prover["Proof server\nLace-hosted on testnets\nVite proxy on Standalone"]
+  browser <--> indexer["Midnight Indexer\nHTTP + WebSocket"]
+  lace <--> node["Midnight network / node"]
+  assets --> prover
+  prover --> node
+  node <--> contract["Prediction-market\nCompact contract ledger"]
+  indexer --> contract
+
+  cli["Optional headless CLI"] --> providers["Wallet SDK + Midnight.js providers"]
+  providers --> prover
+  providers --> indexer
+  providers --> node
+```
+
+### Transaction and data flow
+
+1. The browser connects to Lace and derives a pseudonymous participant key from
+   the local secret witness.
+2. When a participant commits, the app writes the selected team, stake, and
+   random salt to a network-scoped private-state store. The contract receives
+   only the stake, derived key, and a salted commitment hash.
+3. Midnight.js obtains the contract's ZK configuration from the versioned
+   `public/managed/prediction-market` assets. Lace balances and submits the
+   transaction after the proof provider has generated a proof.
+4. The app subscribes to public contract state through the Indexer. This drives
+   the market phase, public pools, and each wallet's actionable status.
+5. During reveal, witnesses supply the locally retained team and salt. Compact
+   recomputes the commitment before the selected team is disclosed and its pool
+   is updated.
+6. On resolution, a winning participant calculates the floor-rounded reward in
+   the app; the contract verifies the quotient bounds and pool conservation
+   before recording the claim.
+
+### Component responsibilities
+
+| Layer | Key implementation | Responsibility |
+|---|---|---|
+| Smart contract | `pkgs/contract/src/prediction-market.compact` | Enforces phases, owner authorization, commitment verification, revealed pools, and pari-mutuel reward conservation. |
+| Witnesses/private state | `pkgs/contract/src/prediction-market-witnesses.ts`, browser private-state provider | Holds the secret key, selected team, stake, and salt that must never be disclosed during commit. |
+| Shared domain package | `pkgs/shared` | Shares network endpoints, ledger types, phase/team enums, and reward math between UI and CLI. |
+| Browser providers | `pkgs/app/src/lib/prediction-market-providers.ts` | Adapts Lace's DApp Connector to Midnight.js wallet/midnight providers, and configures private state, Indexer, ZK assets, and proof server access. |
+| Browser workflow | `pkgs/app/src/lib/prediction-market.ts`, `pkgs/app/src/hooks/usePredictionMarket.ts` | Deploys or joins a contract, persists a prediction before commit, calls circuits, and subscribes to ledger updates. |
+| User interface | `pkgs/app/src/components/PredictionMarket/` | Presents market state and guides participants and the steward through valid next actions. |
+| Headless runtime | `pkgs/cli` | Provides Preview, PreProd, and Docker-backed Standalone workflows using the same compiled contract and shared types. |
+
+## Technology stack
+
+| Area | Technology | Version / role |
+|---|---|---|
+| Smart contract | Midnight Compact + Compact Standard Library | Contract source targets Compact language `>= 0.16 && <= 0.22`; generated artifacts are committed for repeatable browser proving. |
+| Contract runtime | `@midnight-ntwrk/compact-js`, `compact-runtime` | `2.5.0` / `0.15.0`; creates the compiled contract instance and runs generated witnesses. |
+| Midnight application SDK | Midnight.js contracts, providers, and types | `4.0.4`; deploys/finds contracts, reads public state, supplies proofs, and submits transactions. |
+| Wallet integration | Lace + `@midnight-ntwrk/dapp-connector-api` | Connector API `3.x`; supplies network endpoints, balances unsealed transactions, and submits them from the user's wallet. |
+| Headless wallet | Midnight Wallet SDK (Facade, HD, Dust, Shielded, Unshielded) | Used by the CLI for non-browser Preview, PreProd, and Standalone operation. |
+| Frontend | React + TypeScript + Vite | React `19.2`, TypeScript `~6.0`, Vite `5.4`; browser interface and build pipeline. |
+| UI and localization | Tailwind CSS, Radix UI, Lucide, i18next | Tailwind `4`, Radix UI `1.4`, Lucide `1.8`, i18next `26`; accessible components and English/Japanese UI text. |
+| State and streams | RxJS + browser local storage | RxJS `7.8` listens for Indexer state updates; a network-scoped store retains the current market address and private-state provider isolates secrets per wallet. |
+| Testing and quality | Vitest, Biome, TypeScript | Simulator and hook tests, formatting/linting, and package builds validate contract and application behavior. |
+| Local infrastructure | Docker Compose | Runs Midnight node, Indexer, and Proof Server for the Standalone CLI flow. |
+
+### Network-specific provider selection
+
+| Network | Indexer / node | Proof server path | Typical use |
+|---|---|---|---|
+| Preview | Lace-provided Preview endpoints | CORS-enabled prover URL returned by Lace | Recommended shared browser demo. |
+| PreProd | Lace-provided PreProd endpoints | CORS-enabled prover URL returned by Lace | Alternative public test environment. |
+| Standalone (`undeployed`) | Local Docker node and Indexer | Vite's same-origin `/proof-server` proxy to local port `6300` | Local CLI smoke test and isolated development. |
+
+The app intentionally uses the proxy only on Standalone: browser service-worker
+restrictions can prevent Lace from reaching a loopback proof server directly,
+whereas Preview and PreProd already provide a hosted prover through Lace.
+
 ## Prerequisites
 
 - **Recommended:** Docker Desktop, VS Code, and the **Dev Containers** extension
