@@ -8,6 +8,8 @@ Players predict which fictional club will win the Lantern Cup. During the open p
 
 ## Demo
 
+[!['altテキスト'](./docs/youtube-thumbnail.png)](https://youtu.be/G4T-L-rVgzU)
+
 ## Screen Shots
 
 ![](./docs/0.jpg)
@@ -74,10 +76,96 @@ This is meaningful temporary privacy, not permanent anonymity: a successful reve
 
 ## Prerequisites
 
-- Bun 1.2+ (the workspace pins `bun@1.2.0`)
-- Docker Desktop for Standalone infrastructure/proof server
-- Compact toolchain 0.30.0
+- **Recommended:** Docker Desktop, VS Code, and the **Dev Containers** extension
 - Lace Wallet with Midnight support for browser operation
+- The **Preview** network selected in Lace (recommended for this project)
+
+> The repository's Dev Container installs the pinned Bun and Compact toolchain and
+> provides Docker access. It is the recommended way to run the project because it
+> removes host-specific toolchain differences. Preview is the recommended network
+> for browser and multi-participant demos. Use Standalone only for a local CLI
+> smoke test.
+
+## Recommended: run with Dev Container on Preview
+
+1. Install Docker Desktop, VS Code, the **Dev Containers** extension, and Lace
+   Wallet with Midnight support.
+2. Clone this repository in VS Code, then run **Dev Containers: Reopen in
+   Container** from the Command Palette. Wait for the `postCreateCommand` to
+   finish installing Compact 0.30.0.
+3. In Lace, unlock the wallet and select the **Preview** Midnight network.
+4. Open a terminal in the Dev Container and run:
+
+```bash
+bun install
+bun run contract compact
+bun run build
+bun run dev -- --host 0.0.0.0
+```
+
+5. Open the forwarded Vite URL (normally `http://localhost:5173`) in the host
+   browser. `--host 0.0.0.0` is required so Vite accepts connections forwarded
+   from the Dev Container. In the app, select **Preview Testnet**, connect Lace,
+   and deploy a market or join one with a Preview contract address.
+
+Preview uses the HTTPS Proof Server supplied by Lace. Do **not** start a local
+Proof Server for the browser app on Preview. Give every participating wallet
+Preview tDUST from the [Preview faucet](https://faucet.preview.midnight.network/)
+before submitting transactions.
+
+### Run the Preview CLI in Dev Container
+
+Use the same terminal after the build above:
+
+```bash
+bun run cli preview
+```
+
+Choose a fresh wallet or enter an existing seed when prompted, fund the resulting
+Preview address with tDUST, and then deploy or join a market. Each participant
+must use a distinct wallet/private-state profile. Keep the network, contract
+address, and wallet private state unchanged until the reveal and claim steps are
+complete.
+
+## Alternative: run directly on the local machine
+
+If Dev Container is unavailable, install Bun 1.2+, Compact 0.30.0, Docker
+Desktop, and Lace Wallet on the host first. Then use the same recommended Preview
+workflow:
+
+```bash
+bun install
+bun run contract compact
+bun run build
+bun run dev
+```
+
+Open the displayed Vite URL, choose **Preview Testnet**, and connect Lace set to
+Preview. For the headless CLI, run:
+
+```bash
+bun run cli preview
+```
+
+As with Dev Container, Preview uses Lace's hosted Proof Server; no local Proof
+Server is required for this workflow.
+
+### Local Standalone CLI smoke test
+
+Standalone starts a local node, indexer, and Proof Server, and is useful for a
+single-operator smoke test. It is not the recommended path for a shared demo or
+multi-participant market:
+
+```bash
+bun install
+bun run contract compact
+bun run build
+bun run cli standalone
+```
+
+The command manages the local Docker environment for the duration of the CLI
+session. Standalone contract addresses and private state are not compatible with
+Preview; never reuse them across networks.
 
 ## Install, compile, test, build
 
@@ -92,32 +180,29 @@ bun run build
 
 `bun run contract compact` generates the contract JavaScript, proving/verifier keys, and ZKIR from `pkgs/contract/src/prediction-market.compact`. Do not hand-edit `src/managed`.
 
-## Run the browser app
+## Browser app network notes
 
-Start a proof server and compatible Midnight network, then:
+The browser app supports Preview, PreProd, and Standalone. Prefer **Preview** for
+normal development and demonstrations. Lace must use the same network as the app;
+contract addresses and private state are network-specific.
 
-```bash
-bun run dev
-```
-
-Open the displayed Vite URL, select the same network configured in Lace, connect, and either:
-
-- create a market (the deploying browser becomes steward), or
-- paste an existing contract address and enter the market.
-
-Proof requests use the Vite same-origin `/proof-server` proxy because Lace's service worker can block direct browser requests to `127.0.0.1`.
+For Standalone only, proof requests use the Vite same-origin `/proof-server` proxy
+because Lace's service worker can block direct browser requests to
+`127.0.0.1:6300`. Preview and PreProd use the hosted Proof Server returned by Lace.
 
 ## Network helpers
 
 ```bash
-bun run cli standalone   # local node, indexer, proof server and headless client
-bun run cli preview
-bun run cli preview-ps   # starts/reuses a proof server
-bun run cli preprod
-bun run cli preprod-ps
+bun run cli preview      # recommended public testnet workflow
+bun run cli preprod      # alternative public testnet workflow
+bun run cli standalone   # local node, indexer, proof server, and headless client
 ```
 
-Preview and Preprod need funded wallet credentials and matching network services. Contract addresses and private stores are scoped by network so secrets cannot leak between environments.
+`preview-ps` and `preprod-ps` are available for CLI compatibility scenarios that
+explicitly need a local Proof Server. They are not required for the recommended
+browser workflow. Preview and PreProd need funded wallet credentials and matching
+network services. Contract addresses and private stores are scoped by network so
+secrets cannot leak between environments.
 
 ## Operating a market safely
 
