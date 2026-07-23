@@ -6,6 +6,34 @@ Players predict which fictional club will win the Lantern Cup. During the open p
 
 > Educational example only. It uses demo points and a trusted market steward—not real assets or a production oracle.
 
+## Demo
+
+## Screen Shots
+
+![](./docs/0.jpg)
+
+![](./docs/1.jpg)
+
+![](./docs/2.jpg)
+
+![](./docs/3.jpg)
+
+![](./docs/4.jpg)
+
+![](./docs/5.jpg)
+
+![](./docs/6.jpg)
+
+![](./docs/7.jpg)
+
+![](./docs/8.jpg)
+
+![](./docs/9.jpg)
+
+![](./docs/10.jpg)
+
+![](./docs/11.jpg)
+
 ## Market flow
 
 ```text
