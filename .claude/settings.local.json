@@ -89,7 +89,8 @@
       "mcp__github__get_file_contents",
       "WebSearch",
       "WebFetch(domain:forum.midnight.network)",
-      "WebFetch(domain:docs.midnight.network)"
+      "WebFetch(domain:docs.midnight.network)",
+      "Bash(grep -n \"だ。\\\\|である。\\\\|だった。\\\\|していた。\\\\|してい[るた]\\\\\\(だ\\\\|である\\\\\\)\\\\|なのだ\\\\|でしょう\\\\|た。$\" /Users/harukikondo/git/midnight-prediction-market-sample-app/docs/blog/hidden-league-forecast-zenn.md)"
     ],
     "additionalDirectories": [
       "/workspaces/midnight-rps-sample-app/pkgs/cli/wallet-cache/preprod"
